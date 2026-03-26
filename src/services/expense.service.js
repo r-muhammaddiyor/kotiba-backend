@@ -22,6 +22,32 @@ const formatCurrency = (amount, currency = "UZS") =>
     maximumFractionDigits: 0
   }).format(amount || 0);
 
+const buildExpenseAdvice = ({ currency, dayTotal, monthlyIncome, monthlyLimit, monthTotal, usageRatio }) => {
+  if (monthlyLimit > 0 && usageRatio >= 1) {
+    const overAmount = monthTotal - monthlyLimit;
+    return `${formatCurrency(overAmount, currency)} ga limitdan chiqib ketdingiz. Qolgan kunlarda xarajatni aniq reja bilan qilsangiz, pulingiz tartibga tushadi.`;
+  }
+
+  if (monthlyLimit > 0 && usageRatio >= 0.9) {
+    const remaining = Math.max(0, monthlyLimit - monthTotal);
+    return `Oylik limitga juda yaqin qoldingiz, atigi ${formatCurrency(remaining, currency)} joy bor. Zarur bo'lmagan xarajatlarni biroz ushlab turing.`;
+  }
+
+  if (monthlyLimit > 0 && usageRatio >= 0.75) {
+    return `Bu oy xarajatlar tezlashib ketdi. Shu tempda davom etsangiz limitga erta yetib borasiz, biroz ehtiyotroq ishlating.`;
+  }
+
+  if (monthlyIncome > 0 && dayTotal >= monthlyIncome * 0.15) {
+    return `Bugungi xarajat sezilarli bo'ldi. Ertaga mayda xarajatlarni kamaytirsangiz umumiy balansingiz yaxshiroq turadi.`;
+  }
+
+  if (monthTotal === 0) {
+    return "Hozircha xarajat kiritilmagan. Xarajatlarni yozib borsangiz, KotibaAI sizga aniqroq maslahat beradi.";
+  }
+
+  return "Xarajatlaringiz hozircha me'yorida. Shu tartibda davom etsangiz, oy oxirigacha bosim sezilmaydi.";
+};
+
 const normalizeExpenseInput = (payload, options = {}) => {
   const title = String(payload?.title ?? payload?.name ?? "Xarajat").trim();
   const amount = Number(payload?.amount);
@@ -156,15 +182,14 @@ export const getExpenseSummary = async (userId) => {
   const currency = user.finance?.currency || "UZS";
   const usageRatio = monthlyLimit > 0 ? monthTotal / monthlyLimit : 0;
 
-  let advice = "Xarajatlaringiz nazoratda.";
-
-  if (monthlyLimit > 0 && usageRatio >= 1) {
-    advice = "Bu oy ko'p xarajat qilib yubordingiz, pulni tejab ishlating.";
-  } else if (monthlyLimit > 0 && usageRatio >= 0.8) {
-    advice = "Bu oy xarajatlaringiz limitga yaqinlashdi, biroz ehtiyot bo'ling.";
-  } else if (monthlyIncome > 0 && dayTotal >= monthlyIncome * 0.15) {
-    advice = "Bugungi xarajat ancha yuqori, kerakmas xarajatlarni kamaytiring.";
-  }
+  const advice = buildExpenseAdvice({
+    currency,
+    dayTotal,
+    monthlyIncome,
+    monthlyLimit,
+    monthTotal,
+    usageRatio
+  });
 
   return {
     currency,
