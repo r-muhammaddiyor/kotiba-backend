@@ -26,7 +26,7 @@ const conversationMessageSchema = new mongoose.Schema(
     },
     intent: {
       type: String,
-      enum: ["chat", "reminder", "task", "mixed", null],
+      enum: ["chat", "reminder", "task", "mixed", "note", null],
       default: null
     },
     taskCount: {
