@@ -35,6 +35,23 @@ const userSchema = new mongoose.Schema(
       notifyVoice: {
         type: Boolean,
         default: true
+      },
+      assistantTone: {
+        type: String,
+        enum: ["calm", "friendly", "formal"],
+        default: "calm"
+      },
+      dailyBriefing: {
+        type: Boolean,
+        default: true
+      },
+      weeklyReport: {
+        type: Boolean,
+        default: true
+      },
+      missedReminderRecovery: {
+        type: Boolean,
+        default: true
       }
     },
     finance: {

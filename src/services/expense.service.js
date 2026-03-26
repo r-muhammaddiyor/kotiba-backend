@@ -22,6 +22,15 @@ const formatCurrency = (amount, currency = "UZS") =>
     maximumFractionDigits: 0
   }).format(amount || 0);
 
+const categoryLabels = {
+  general: "Umumiy",
+  food: "Oziq-ovqat",
+  transport: "Transport",
+  home: "Uy",
+  work: "Ish",
+  other: "Boshqa"
+};
+
 const buildExpenseAdvice = ({ currency, dayTotal, monthlyIncome, monthlyLimit, monthTotal, usageRatio }) => {
   if (monthlyLimit > 0 && usageRatio >= 1) {
     const overAmount = monthTotal - monthlyLimit;
@@ -158,7 +167,7 @@ export const getExpenseSummary = async (userId) => {
   }
 
   const now = new Date();
-  const [daily, weekly, monthly, recentExpenses] = await Promise.all([
+  const [daily, weekly, monthly, monthlyByCategory, recentExpenses] = await Promise.all([
     Expense.aggregate([
       { $match: { user: user._id, spentAt: { $gte: startOfToday(now) } } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
@@ -170,6 +179,11 @@ export const getExpenseSummary = async (userId) => {
     Expense.aggregate([
       { $match: { user: user._id, spentAt: { $gte: startOfMonth(now) } } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]),
+    Expense.aggregate([
+      { $match: { user: user._id, spentAt: { $gte: startOfMonth(now) } } },
+      { $group: { _id: "$category", total: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $sort: { total: -1 } }
     ]),
     Expense.find({ user: user._id }).sort({ spentAt: -1, createdAt: -1 }).limit(12).lean()
   ]);
@@ -190,6 +204,27 @@ export const getExpenseSummary = async (userId) => {
     monthTotal,
     usageRatio
   });
+  const categoryBreakdown = monthlyByCategory.map((entry) => ({
+    category: entry._id || "general",
+    label: categoryLabels[entry._id] || categoryLabels.general,
+    total: entry.total || 0,
+    count: entry.count || 0,
+    share: monthTotal > 0 ? Math.round(((entry.total || 0) / monthTotal) * 100) : 0,
+    formattedTotal: formatCurrency(entry.total || 0, currency)
+  }));
+  const topCategory = categoryBreakdown[0] || null;
+  const analytics = {
+    topCategory: topCategory
+      ? `${topCategory.label} eng katta ulushni oldi: ${topCategory.formattedTotal} (${topCategory.share}%)`
+      : "Kategoriya bo'yicha xarajat hali ko'rinmayapti",
+    spendPace:
+      monthlyLimit > 0 && monthTotal > monthlyLimit
+        ? "Bu oy limitdan chiqib ketdingiz, qolgan xarajatlarni faqat zarur narsalarga qiling."
+        : monthlyLimit > 0 && usageRatio >= 0.85
+          ? "Bu oy limitga juda yaqinlashdingiz, mayda xarajatlar ham endi seziladi."
+          : "Xarajat pacing hozircha nazoratda.",
+    categoryBreakdown
+  };
 
   return {
     currency,
@@ -199,6 +234,7 @@ export const getExpenseSummary = async (userId) => {
     weeklyTotal: weekTotal,
     monthlyTotal: monthTotal,
     advice,
+    analytics,
     formatted: {
       dailyTotal: formatCurrency(dayTotal, currency),
       weeklyTotal: formatCurrency(weekTotal, currency),

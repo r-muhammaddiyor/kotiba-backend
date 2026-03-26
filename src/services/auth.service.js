@@ -88,7 +88,13 @@ export const updateUserProfile = async (userId, payload) => {
   if (payload?.preferences && typeof payload.preferences === "object") {
     update.preferences = {
       notifyInSite: payload.preferences.notifyInSite !== false,
-      notifyVoice: payload.preferences.notifyVoice !== false
+      notifyVoice: payload.preferences.notifyVoice !== false,
+      assistantTone: ["calm", "friendly", "formal"].includes(payload.preferences.assistantTone)
+        ? payload.preferences.assistantTone
+        : "calm",
+      dailyBriefing: payload.preferences.dailyBriefing !== false,
+      weeklyReport: payload.preferences.weeklyReport !== false,
+      missedReminderRecovery: payload.preferences.missedReminderRecovery !== false
     };
   }
 
