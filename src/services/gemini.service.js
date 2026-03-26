@@ -2,7 +2,7 @@ import { env } from "../config/env.js";
 import { HttpError } from "../utils/httpError.js";
 import { buildKotibaMasterPrompt } from "./kotibaPrompt.service.js";
 
-const allowedIntents = new Set(["chat", "reminder", "task", "mixed"]);
+const allowedIntents = new Set(["chat", "reminder", "task", "mixed", "note"]);
 const allowedRepeatTypes = new Set(["none", "hourly", "daily", "weekly", "custom"]);
 
 const extractGeminiText = (payload) =>
@@ -32,6 +32,7 @@ const extractJsonObject = (rawText) => {
 const normalizeTask = (task) => ({
   title: String(task?.title ?? "").trim(),
   note: String(task?.note ?? "").trim(),
+  location_label: String(task?.location_label ?? task?.locationLabel ?? "").trim(),
   action_text: String(task?.action_text ?? "").trim(),
   schedule_at: task?.schedule_at ?? null,
   remind_before_minutes: Number.isFinite(Number(task?.remind_before_minutes))
@@ -57,6 +58,11 @@ const normalizeExpense = (expense) => ({
   category: String(expense?.category ?? "general").trim() || "general"
 });
 
+const normalizeNote = (note) => ({
+  title: String(note?.title ?? "").trim(),
+  body: String(note?.body ?? note?.note ?? "").trim()
+});
+
 const normalizeAssistantPayload = (payload) => {
   const intent = allowedIntents.has(payload?.intent) ? payload.intent : "chat";
   const assistantReply = String(payload?.assistant_reply ?? "").trim();
@@ -64,6 +70,7 @@ const normalizeAssistantPayload = (payload) => {
   const expenses = Array.isArray(payload?.expenses)
     ? payload.expenses.map(normalizeExpense).filter((expense) => expense.title && expense.amount > 0)
     : [];
+  const notes = Array.isArray(payload?.notes) ? payload.notes.map(normalizeNote).filter((note) => note.title) : [];
   const financeProfile = payload?.finance_profile && typeof payload.finance_profile === "object"
     ? {
         monthly_income: Number.isFinite(Number(payload.finance_profile.monthly_income))
@@ -84,6 +91,7 @@ const normalizeAssistantPayload = (payload) => {
     assistant_reply: assistantReply,
     tasks,
     expenses,
+    notes,
     finance_profile: financeProfile
   };
 };

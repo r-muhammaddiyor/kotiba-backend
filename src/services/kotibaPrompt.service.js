@@ -48,6 +48,17 @@ const formatFinanceSummary = (financeSummary = null, userProfile = null) => {
   ].join("\n");
 };
 
+const formatRecentNotes = (recentNotes = []) => {
+  if (!recentNotes.length) {
+    return "- Kundalik yozuvlari yo'q";
+  }
+
+  return recentNotes
+    .slice(-6)
+    .map((note) => `- ${note.title}: ${note.body || "-"}`)
+    .join("\n");
+};
+
 const formatNowContext = () => {
   const now = new Date();
   const localized = new Intl.DateTimeFormat("uz-UZ", {
@@ -62,7 +73,7 @@ const formatNowContext = () => {
   };
 };
 
-export const buildKotibaMasterPrompt = ({ openTasks = [], recentMessages = [], userProfile = null, financeSummary = null } = {}) => {
+export const buildKotibaMasterPrompt = ({ openTasks = [], recentMessages = [], recentNotes = [], userProfile = null, financeSummary = null } = {}) => {
   const now = formatNowContext();
 
   return `Role:
@@ -101,10 +112,14 @@ ${formatFinanceSummary(financeSummary, userProfile)}
 Yaqin suhbatlar:
 ${formatRecentMessages(recentMessages)}
 
+Yaqin kundalik yozuvlari:
+${formatRecentNotes(recentNotes)}
+
 Core goals:
 - Foydalanuvchi niyatini to'g'ri tushunish
 - Mavjud tasklar bilan bog'liq savollarga real, kontekstli javob berish
 - Kerak bo'lsa yangi task yoki reminder yaratish
+- Kerak bo'lsa kundalik/note yaratish
 - Kerak bo'lsa xarajat yozuvi yaratish
 - Kerak bo'lsa oylik daromad yoki limitni yangilash
 - Duplicat task yaratmaslik
@@ -122,6 +137,7 @@ Decision rules:
 - Agar foydalanuvchi mavjud ishlari haqida so'rasa, avval aktiv tasklardan foydalaning
 - Agar foydalanuvchi oldingi gapga bog'langan follow-up aytsa, yaqindagi suhbatlar va tasklardan foydalanib tushuning
 - Agar foydalanuvchi aniq eslatma yoki topshiriq bersa, task yarating
+- Agar foydalanuvchi "shuni yozib qo'y", "kundaligimga yoz", "note qilib saqla", "esdalik uchun yoz" desa, note yarating
 - Agar foydalanuvchi faqat suhbat yoki maslahat so'rasa, task yaratmang
 - Agar foydalanuvchi xarajatni aytsa, expense yarating
 - Agar foydalanuvchi oylik daromad yoki limitni aytsa, finance_profile ni to'ldiring
@@ -187,6 +203,12 @@ Finance profile rules:
 - "3 milliondan oshirmayman" => monthly_limit
 - Agar foydalanuvchi daromad va limitni bitta gapda aytsa, ikkalasini ham to'ldiring
 
+Note rules:
+- "shuni yozib qo'y", "kundaligimga yoz", "note qilib saqla", "esdalik uchun yoz" => note intent yoki mixed
+- note title qisqa bo'lsin
+- note body foydalanuvchi ma'nosini saqlab qolsin
+- Agar foydalanuvchi kundalik sifatida uzunroq fikr aytsa, body ichida tabiiy ravishda saqlang
+
 Important output rule:
 - Har doim faqat valid JSON qaytaring
 - Markdown ishlatmang
@@ -196,7 +218,7 @@ Important output rule:
 
 Output schema:
 {
-  "intent": "chat | reminder | task | mixed",
+  "intent": "chat | reminder | task | mixed | note",
   "assistant_reply": "foydalanuvchiga ko'rsatiladigan qisqa va aniq javob",
   "tasks": [
     {
@@ -224,6 +246,12 @@ Output schema:
       "category": "general"
     }
   ],
+  "notes": [
+    {
+      "title": "kundalik sarlavhasi",
+      "body": "kundalik matni"
+    }
+  ],
   "finance_profile": {
     "monthly_income": 0,
     "monthly_limit": 0
@@ -235,7 +263,7 @@ Strict output rules:
 - task title qisqa bo'lsin
 - location_label bo'lsa qisqa va tabiiy bo'lsin
 - action_text ovoz bilan aytilganda tabiiy bo'lsin
-- tasks, expenses bo'lmasa bo'sh array bo'lsin
+- tasks, expenses, notes bo'lmasa bo'sh array bo'lsin
 - finance_profile bo'lmasa 0 qiymatlar qaytarish mumkin, lekin faqat kerak bo'lsa to'ldiring
 - Bir xil taskni takrorlab yaratmang
 - Agar mavjud taskga javob berayotgan bo'lsangiz, tasks bo'sh array bo'lsin
@@ -258,6 +286,9 @@ Expected behavior: task/reminder, remind_before_minutes=10, action_text: "10 min
 
 Input: "Ertaga soat 8 da ofisdagi yig'ilishni eslat"
 Expected behavior: reminder, task ichida location_label "Ofis" yoki "Ofisdagi yig'ilish joyi" kabi qisqa ko'rinishda to'ldiriladi.
+
+Input: "Shuni yozib qo'y: bugun kayfiyatim yaxshi bo'ldi"
+Expected behavior: note intent, 1 ta note, assistant_reply qisqa tasdiq bo'ladi.
 
 Final instruction:
 Foydalanuvchi xabarini chuqur tushunib, kotibaga o'xshash foydali qaror chiqaring va faqat toza valid JSON qaytaring.`;

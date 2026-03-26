@@ -1,4 +1,5 @@
 import { ConversationMessage } from "../models/ConversationMessage.js";
+import { Note } from "../models/Note.js";
 import { Task } from "../models/Task.js";
 import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
@@ -8,12 +9,14 @@ import { createAssistantTasks } from "./task.service.js";
 import { synthesizeUzbekSpeech } from "./tts.service.js";
 import { createConversationMessages } from "./conversation.service.js";
 import { createAssistantExpenses, getExpenseSummary } from "./expense.service.js";
+import { createAssistantNotes } from "./note.service.js";
 
 const getAssistantContext = async (userId) => {
-  const [user, openTasks, recentMessages, financeSummary] = await Promise.all([
+  const [user, openTasks, recentMessages, recentNotes, financeSummary] = await Promise.all([
     User.findById(userId).lean(),
     Task.find({ user: userId, isCompleted: false }).sort({ createdAt: -1 }).limit(12).lean(),
     ConversationMessage.find({ user: userId }).sort({ createdAt: -1 }).limit(8).lean(),
+    Note.find({ user: userId }).sort({ createdAt: -1 }).limit(6).lean(),
     getExpenseSummary(userId)
   ]);
 
@@ -21,6 +24,7 @@ const getAssistantContext = async (userId) => {
     userProfile: user,
     openTasks,
     recentMessages: recentMessages.reverse(),
+    recentNotes: recentNotes.reverse(),
     financeSummary
   };
 };
@@ -40,6 +44,7 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
     tasks: assistantPayload.tasks
   });
   const createdExpenses = await createAssistantExpenses(userId, assistantPayload.expenses);
+  const createdNotes = await createAssistantNotes(userId, assistantPayload.notes);
 
   if (assistantPayload.finance_profile) {
     const monthlyIncome = Number(assistantPayload.finance_profile.monthly_income || 0);
@@ -60,7 +65,8 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
     normalizedText,
     aiText,
     ...createdTasks.map((task) => task.title),
-    ...createdExpenses.map((expense) => expense.title)
+    ...createdExpenses.map((expense) => expense.title),
+    ...createdNotes.map((note) => note.title)
   ].join(" ");
   const suggestions = buildSmartSuggestions(suggestionSeed);
 
@@ -80,9 +86,11 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
       intent: assistantPayload.intent,
       tasks: assistantPayload.tasks,
       expenses: assistantPayload.expenses,
+      notes: assistantPayload.notes,
       financeProfile: assistantPayload.finance_profile,
       createdTasks,
       createdExpenses,
+      createdNotes,
       suggestions,
       savedMessages
     };
@@ -96,9 +104,11 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
     intent: assistantPayload.intent,
     tasks: assistantPayload.tasks,
     expenses: assistantPayload.expenses,
+    notes: assistantPayload.notes,
     financeProfile: assistantPayload.finance_profile,
     createdTasks,
     createdExpenses,
+    createdNotes,
     audioBase64: tts.audioBase64,
     audioMimeType: tts.mimeType,
     suggestions,
