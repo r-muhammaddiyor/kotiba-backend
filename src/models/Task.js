@@ -20,6 +20,12 @@ const taskSchema = new mongoose.Schema(
       maxlength: 2000,
       default: ""
     },
+    locationLabel: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+      default: ""
+    },
     description: {
       type: String,
       trim: true,

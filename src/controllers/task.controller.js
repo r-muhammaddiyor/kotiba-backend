@@ -71,6 +71,10 @@ export const updateTask = async (req, res, next) => {
       update.note = update.description;
     }
 
+    if (Object.prototype.hasOwnProperty.call(update, "locationLabel")) {
+      update.locationLabel = String(update.locationLabel || "").trim();
+    }
+
     if (Object.prototype.hasOwnProperty.call(update, "scheduleAt")) {
       update.scheduleAt = update.scheduleAt ? new Date(update.scheduleAt) : null;
       update.dueAt = update.scheduleAt;

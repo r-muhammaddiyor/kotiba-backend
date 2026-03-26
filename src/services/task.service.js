@@ -64,6 +64,7 @@ export const buildTaskDocument = (taskInput, options = {}) => {
   }
 
   const note = String(taskInput?.note ?? taskInput?.description ?? "").trim();
+  const locationLabel = String(taskInput?.location_label ?? taskInput?.locationLabel ?? "").trim();
   const scheduleAt =
     parseDate(taskInput?.schedule_at ?? taskInput?.scheduleAt) ??
     parseDate(taskInput?.reminderAt) ??
@@ -83,6 +84,7 @@ export const buildTaskDocument = (taskInput, options = {}) => {
   return {
     title,
     note,
+    locationLabel,
     description: note,
     actionText,
     scheduleAt,

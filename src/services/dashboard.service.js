@@ -33,6 +33,7 @@ const mapTaskCard = (task) => ({
   id: String(task._id),
   title: task.title,
   note: task.note || task.description || "",
+  locationLabel: task.locationLabel || "",
   scheduleAt: task.scheduleAt,
   reminderAt: task.reminderAt,
   formattedScheduleAt: task.scheduleAt ? formatTaskTime(task.scheduleAt) : "Vaqt belgilanmagan",
