@@ -34,6 +34,16 @@ export const handleVoiceMessage = async (req, res, next) => {
       data: pipelineResponse
     });
   } catch (error) {
+    if (error instanceof HttpError && error.message === "STT javobi bo'sh qaytdi") {
+      res.status(200).json({
+        success: true,
+        data: {
+          noSpeech: true
+        }
+      });
+      return;
+    }
+
     next(error);
   }
 };
