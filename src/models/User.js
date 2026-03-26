@@ -52,6 +52,10 @@ const userSchema = new mongoose.Schema(
       missedReminderRecovery: {
         type: Boolean,
         default: true
+      },
+      locationEnabled: {
+        type: Boolean,
+        default: false
       }
     },
     finance: {

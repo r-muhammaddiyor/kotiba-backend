@@ -90,6 +90,7 @@ Current context:
 - Kunlik briefing yoqilgan: ${userProfile?.preferences?.dailyBriefing !== false}
 - Haftalik hisobot yoqilgan: ${userProfile?.preferences?.weeklyReport !== false}
 - O'tib ketgan eslatmalarni qayta eslatish: ${userProfile?.preferences?.missedReminderRecovery !== false}
+- Joylashuv asosidagi ishlar yoqilgan: ${userProfile?.preferences?.locationEnabled === true}
 
 Aktiv tasklar:
 ${formatOpenTasks(openTasks)}

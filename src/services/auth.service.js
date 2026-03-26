@@ -94,7 +94,8 @@ export const updateUserProfile = async (userId, payload) => {
         : "calm",
       dailyBriefing: payload.preferences.dailyBriefing !== false,
       weeklyReport: payload.preferences.weeklyReport !== false,
-      missedReminderRecovery: payload.preferences.missedReminderRecovery !== false
+      missedReminderRecovery: payload.preferences.missedReminderRecovery !== false,
+      locationEnabled: payload.preferences.locationEnabled === true
     };
   }
 
