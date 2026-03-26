@@ -36,6 +36,23 @@ const userSchema = new mongoose.Schema(
         type: Boolean,
         default: true
       }
+    },
+    finance: {
+      monthlyIncome: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      monthlyLimit: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      currency: {
+        type: String,
+        default: "UZS",
+        trim: true
+      }
     }
   },
   {

@@ -9,7 +9,8 @@ const sanitizeUser = (user) => ({
   email: user.email,
   locale: user.locale,
   timeZone: user.timeZone,
-  preferences: user.preferences
+  preferences: user.preferences,
+  finance: user.finance
 });
 
 export const registerUser = async ({ name, email, password }) => {
@@ -88,6 +89,17 @@ export const updateUserProfile = async (userId, payload) => {
     update.preferences = {
       notifyInSite: payload.preferences.notifyInSite !== false,
       notifyVoice: payload.preferences.notifyVoice !== false
+    };
+  }
+
+  if (payload?.finance && typeof payload.finance === "object") {
+    const monthlyIncome = Number(payload.finance.monthlyIncome || 0);
+    const monthlyLimit = Number(payload.finance.monthlyLimit || 0);
+
+    update.finance = {
+      monthlyIncome: Number.isFinite(monthlyIncome) && monthlyIncome > 0 ? Math.floor(monthlyIncome) : 0,
+      monthlyLimit: Number.isFinite(monthlyLimit) && monthlyLimit > 0 ? Math.floor(monthlyLimit) : 0,
+      currency: String(payload.finance.currency || "UZS").trim() || "UZS"
     };
   }
 

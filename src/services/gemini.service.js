@@ -49,10 +49,31 @@ const normalizeTask = (task) => ({
   notify_voice: task?.notify_voice !== false
 });
 
+const normalizeExpense = (expense) => ({
+  title: String(expense?.title ?? "Xarajat").trim(),
+  amount: Number.isFinite(Number(expense?.amount)) ? Math.max(0, Math.floor(Number(expense.amount))) : 0,
+  note: String(expense?.note ?? "").trim(),
+  spent_at: expense?.spent_at ?? null,
+  category: String(expense?.category ?? "general").trim() || "general"
+});
+
 const normalizeAssistantPayload = (payload) => {
   const intent = allowedIntents.has(payload?.intent) ? payload.intent : "chat";
   const assistantReply = String(payload?.assistant_reply ?? "").trim();
   const tasks = Array.isArray(payload?.tasks) ? payload.tasks.map(normalizeTask).filter((task) => task.title) : [];
+  const expenses = Array.isArray(payload?.expenses)
+    ? payload.expenses.map(normalizeExpense).filter((expense) => expense.title && expense.amount > 0)
+    : [];
+  const financeProfile = payload?.finance_profile && typeof payload.finance_profile === "object"
+    ? {
+        monthly_income: Number.isFinite(Number(payload.finance_profile.monthly_income))
+          ? Math.max(0, Math.floor(Number(payload.finance_profile.monthly_income)))
+          : 0,
+        monthly_limit: Number.isFinite(Number(payload.finance_profile.monthly_limit))
+          ? Math.max(0, Math.floor(Number(payload.finance_profile.monthly_limit)))
+          : 0
+      }
+    : null;
 
   if (!assistantReply) {
     throw new HttpError(502, "Gemini assistant_reply qaytarmadi");
@@ -61,7 +82,9 @@ const normalizeAssistantPayload = (payload) => {
   return {
     intent,
     assistant_reply: assistantReply,
-    tasks
+    tasks,
+    expenses,
+    finance_profile: financeProfile
   };
 };
 

@@ -30,7 +30,24 @@ const formatOpenTasks = (openTasks = []) => {
     .join("\n");
 };
 
-export const buildKotibaMasterPrompt = ({ openTasks = [], recentMessages = [], userProfile = null } = {}) => {
+const formatFinanceSummary = (financeSummary = null, userProfile = null) => {
+  const monthlyIncome = financeSummary?.monthlyIncome ?? userProfile?.finance?.monthlyIncome ?? 0;
+  const monthlyLimit = financeSummary?.monthlyLimit ?? userProfile?.finance?.monthlyLimit ?? 0;
+  const dailyTotal = financeSummary?.dailyTotal ?? 0;
+  const weeklyTotal = financeSummary?.weeklyTotal ?? 0;
+  const monthlyTotal = financeSummary?.monthlyTotal ?? 0;
+
+  return [
+    `- Oylik daromad: ${monthlyIncome}`,
+    `- Oylik limit: ${monthlyLimit}`,
+    `- Kunlik xarajat: ${dailyTotal}`,
+    `- Haftalik xarajat: ${weeklyTotal}`,
+    `- Oylik xarajat: ${monthlyTotal}`,
+    `- Maslahat: ${financeSummary?.advice || "Moliyaviy maslahat hali yo'q"}`
+  ].join("\n");
+};
+
+export const buildKotibaMasterPrompt = ({ openTasks = [], recentMessages = [], userProfile = null, financeSummary = null } = {}) => {
   const now = new Date().toISOString();
 
   return `Role:
@@ -51,6 +68,9 @@ Current context:
 Aktiv tasklar:
 ${formatOpenTasks(openTasks)}
 
+Moliyaviy holat:
+${formatFinanceSummary(financeSummary, userProfile)}
+
 Yaqin suhbatlar:
 ${formatRecentMessages(recentMessages)}
 
@@ -59,6 +79,7 @@ System goals:
 - Eslatma va tasklarni aniq ajratish
 - Agar foydalanuvchi mavjud ishlarini so'rasa, yuqoridagi aktiv tasklardan foydalanib real javob berish
 - Kerak bo'lsa bir nechta task yaratish
+- Kerak bo'lsa xarajat yoki daromad ma'lumotini ajratib olish
 - Vaqtni mantiqiy infer qilish
 - Foydalanuvchiga haqiqiy kotiba kabi qisqa, foydali, xotirjam javob berish
 
@@ -67,6 +88,8 @@ Secretary behavior rules:
 - Agar foydalanuvchi bir nechta ish aytsa, ularni alohida tasklarga ajrating
 - Agar foydalanuvchi bugungi, ertangi yoki shu haftadagi ishlarini so'rasa, mavjud tasklardan foydalaning
 - Agar foydalanuvchi topshiriqni aniq aytsa, yangi task yarating
+- Agar foydalanuvchi xarajat qilganini aytsa, expense yozuv yarating
+- Agar foydalanuvchi oylik daromad yoki limit aytsa, finance_profile ga yozing
 - Agar foydalanuvchi faqat maslahat yoki savol so'rasa, yangi task yaratmang
 - Vaqt qisman aytilgan bo'lsa, eng mantiqiy default vaqtni tanlang
 - Noaniq gap bo'lsa ham foydali javob bering; task yaratish kerak bo'lsa schedule_at ni null qoldiring
@@ -99,7 +122,20 @@ Output schema:
       "notify_in_site": true,
       "notify_voice": true
     }
-  ]
+  ],
+  "expenses": [
+    {
+      "title": "xarajat nomi",
+      "amount": 0,
+      "note": "izoh",
+      "spent_at": "ISO datetime yoki null",
+      "category": "general"
+    }
+  ],
+  "finance_profile": {
+    "monthly_income": 0,
+    "monthly_limit": 0
+  }
 }
 
 Intent guide:
@@ -113,6 +149,12 @@ Task creation rules:
 - Aniq ish topshirig'i bo'lsa task yarating
 - Savol bo'lsa tasks bo'sh array bo'lsin
 - Bir nechta vazifa bo'lsa har biri uchun alohida object qaytaring
+
+Finance rules:
+- "500 ming ishlatdim", "bugun 200 ming ketdi" kabi gaplar expense sifatida yozilsin
+- "oylik daromadim 8 million", "har oy 5 million topaman" kabi gaplar finance_profile.monthly_income ga yozilsin
+- "oylik limitim 3 million", "3 milliondan oshirmayman" kabi gaplar finance_profile.monthly_limit ga yozilsin
+- Xarajatlar ko'payib ketgan bo'lsa assistant_reply ichida tejash bo'yicha qisqa maslahat bering
 
 Time rules:
 - schedule_at faqat tushunarli vaqt bo'lsa to'ldirilsin
@@ -145,5 +187,6 @@ Language and style rules:
 - Agar remind_before_minutes > 0 bo'lsa action_text vaqt oldidan aytiladigan gap bo'lsin
 - Misol: 10 minut oldin eslatish uchun "10 minutdan keyin uchrashuvingiz bor"
 - Misol: 1 soat oldin eslatish uchun "1 soatdan keyin yig'ilishingiz bor"
+- Agar foydalanuvchi xarajat aytsa, assistant_reply ichida qisqa moliyaviy xulosa ham bering
 - Agar foydalanuvchi mavjud tasklarini so'rasa, umumiy gap emas, real mavjud tasklar asosida javob yozing`;
 };

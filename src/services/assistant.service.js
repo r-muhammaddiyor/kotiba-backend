@@ -7,18 +7,21 @@ import { buildSmartSuggestions } from "./suggestion.service.js";
 import { createAssistantTasks } from "./task.service.js";
 import { synthesizeUzbekSpeech } from "./tts.service.js";
 import { createConversationMessages } from "./conversation.service.js";
+import { createAssistantExpenses, getExpenseSummary } from "./expense.service.js";
 
 const getAssistantContext = async (userId) => {
-  const [user, openTasks, recentMessages] = await Promise.all([
+  const [user, openTasks, recentMessages, financeSummary] = await Promise.all([
     User.findById(userId).lean(),
     Task.find({ user: userId, isCompleted: false }).sort({ createdAt: -1 }).limit(12).lean(),
-    ConversationMessage.find({ user: userId }).sort({ createdAt: -1 }).limit(8).lean()
+    ConversationMessage.find({ user: userId }).sort({ createdAt: -1 }).limit(8).lean(),
+    getExpenseSummary(userId)
   ]);
 
   return {
     userProfile: user,
     openTasks,
-    recentMessages: recentMessages.reverse()
+    recentMessages: recentMessages.reverse(),
+    financeSummary
   };
 };
 
@@ -36,11 +39,28 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
     intent: assistantPayload.intent,
     tasks: assistantPayload.tasks
   });
+  const createdExpenses = await createAssistantExpenses(userId, assistantPayload.expenses);
+
+  if (assistantPayload.finance_profile) {
+    const monthlyIncome = Number(assistantPayload.finance_profile.monthly_income || 0);
+    const monthlyLimit = Number(assistantPayload.finance_profile.monthly_limit || 0);
+
+    if (monthlyIncome > 0 || monthlyLimit > 0) {
+      await User.findByIdAndUpdate(userId, {
+        $set: {
+          "finance.monthlyIncome": monthlyIncome > 0 ? monthlyIncome : assistantContext.userProfile?.finance?.monthlyIncome || 0,
+          "finance.monthlyLimit": monthlyLimit > 0 ? monthlyLimit : assistantContext.userProfile?.finance?.monthlyLimit || 0
+        }
+      });
+    }
+  }
+
   const aiText = assistantPayload.assistant_reply;
   const suggestionSeed = [
     normalizedText,
     aiText,
-    ...createdTasks.map((task) => task.title)
+    ...createdTasks.map((task) => task.title),
+    ...createdExpenses.map((expense) => expense.title)
   ].join(" ");
   const suggestions = buildSmartSuggestions(suggestionSeed);
 
@@ -59,7 +79,10 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
       aiText,
       intent: assistantPayload.intent,
       tasks: assistantPayload.tasks,
+      expenses: assistantPayload.expenses,
+      financeProfile: assistantPayload.finance_profile,
       createdTasks,
+      createdExpenses,
       suggestions,
       savedMessages
     };
@@ -72,7 +95,10 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
     aiText,
     intent: assistantPayload.intent,
     tasks: assistantPayload.tasks,
+    expenses: assistantPayload.expenses,
+    financeProfile: assistantPayload.finance_profile,
     createdTasks,
+    createdExpenses,
     audioBase64: tts.audioBase64,
     audioMimeType: tts.mimeType,
     suggestions,

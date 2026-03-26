@@ -5,6 +5,7 @@ import conversationRouter from "./conversation.routes.js";
 import voiceRouter from "./voice.routes.js";
 import taskRouter from "./task.routes.js";
 import pushRouter from "./push.routes.js";
+import expenseRouter from "./expense.routes.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const apiRouter = Router();
@@ -20,5 +21,6 @@ apiRouter.use("/conversations", conversationRouter);
 apiRouter.use("/voice", voiceRouter);
 apiRouter.use("/tasks", taskRouter);
 apiRouter.use("/push", pushRouter);
+apiRouter.use("/expenses", expenseRouter);
 
 export default apiRouter;
