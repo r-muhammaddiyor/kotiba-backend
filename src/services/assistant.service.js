@@ -13,20 +13,23 @@ import { createAssistantNotes } from "./note.service.js";
 
 const buildIsoDateAfterMinutes = (minutesFromNow) => new Date(Date.now() + minutesFromNow * 60 * 1000).toISOString();
 
+const absoluteTimeCuePattern =
+  /\b(soat\s*\d{1,2}(:\d{2})?|\d{1,2}:\d{2}|bugun|ertaga|indin|dushanba|seshanba|chorshanba|payshanba|juma|shanba|yakshanba|ertalab|kechqurun|tushda)\b/i;
+
 const inferRelativeMinutes = (text) => {
   const normalized = String(text || "").toLowerCase().trim();
 
-  const minuteMatch = normalized.match(/(\d+)\s*(daqiqa|minut|min)\s*(dan\s*)?keyin/);
+  const minuteMatch = normalized.match(/(\d+)\s*(daqiqa|minut|min)\s*(dan\s*)?(keyin|so'ng|song)/);
   if (minuteMatch) {
     return Number(minuteMatch[1]);
   }
 
-  const hourMatch = normalized.match(/(\d+)\s*soat\s*(dan\s*)?keyin/);
+  const hourMatch = normalized.match(/(\d+)\s*soat\s*(dan\s*)?(keyin|so'ng|song)/);
   if (hourMatch) {
     return Number(hourMatch[1]) * 60;
   }
 
-  const dayMatch = normalized.match(/(\d+)\s*kun\s*(dan\s*)?keyin/);
+  const dayMatch = normalized.match(/(\d+)\s*kun\s*(dan\s*)?(keyin|so'ng|song)/);
   if (dayMatch) {
     return Number(dayMatch[1]) * 24 * 60;
   }
@@ -36,6 +39,7 @@ const inferRelativeMinutes = (text) => {
 
 const hydrateRelativeTasks = (payload, userText) => {
   const relativeMinutes = inferRelativeMinutes(userText);
+  const hasAbsoluteTimeCue = absoluteTimeCuePattern.test(String(userText || ""));
 
   if (!relativeMinutes || !Array.isArray(payload?.tasks) || !payload.tasks.length) {
     return payload;
@@ -44,16 +48,14 @@ const hydrateRelativeTasks = (payload, userText) => {
   return {
     ...payload,
     tasks: payload.tasks.map((task) => {
-      if (task.schedule_at) {
+      if (task.schedule_at && hasAbsoluteTimeCue) {
         return task;
       }
 
       return {
         ...task,
         schedule_at: buildIsoDateAfterMinutes(relativeMinutes),
-        remind_before_minutes: Number.isFinite(Number(task.remind_before_minutes))
-          ? Math.max(0, Math.floor(Number(task.remind_before_minutes)))
-          : 0
+        remind_before_minutes: 0
       };
     })
   };

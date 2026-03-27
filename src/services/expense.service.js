@@ -1,19 +1,7 @@
 import { Expense } from "../models/Expense.js";
 import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
-
-const startOfToday = (now = new Date()) => new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-const startOfWeek = (now = new Date()) => {
-  const day = now.getDay();
-  const diff = day === 0 ? 6 : day - 1;
-  const date = new Date(now);
-  date.setDate(now.getDate() - diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-};
-
-const startOfMonth = (now = new Date()) => new Date(now.getFullYear(), now.getMonth(), 1);
+import { startOfAppDay, startOfAppMonth, startOfAppWeek } from "../utils/timezone.js";
 
 const formatCurrency = (amount, currency = "UZS") =>
   new Intl.NumberFormat("uz-UZ", {
@@ -196,15 +184,15 @@ export const getExpenseSnapshot = async (userId) => {
     {
       $facet: {
         daily: [
-          { $match: { spentAt: { $gte: startOfToday(now) } } },
+          { $match: { spentAt: { $gte: startOfAppDay(now) } } },
           { $group: { _id: null, total: { $sum: "$amount" } } }
         ],
         weekly: [
-          { $match: { spentAt: { $gte: startOfWeek(now) } } },
+          { $match: { spentAt: { $gte: startOfAppWeek(now) } } },
           { $group: { _id: null, total: { $sum: "$amount" } } }
         ],
         monthly: [
-          { $match: { spentAt: { $gte: startOfMonth(now) } } },
+          { $match: { spentAt: { $gte: startOfAppMonth(now) } } },
           { $group: { _id: null, total: { $sum: "$amount" } } }
         ]
       }
@@ -228,19 +216,19 @@ export const getExpenseSummary = async (userId) => {
   const now = new Date();
   const [daily, weekly, monthly, monthlyByCategory, recentExpenses] = await Promise.all([
     Expense.aggregate([
-      { $match: { user: user._id, spentAt: { $gte: startOfToday(now) } } },
+      { $match: { user: user._id, spentAt: { $gte: startOfAppDay(now) } } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]),
     Expense.aggregate([
-      { $match: { user: user._id, spentAt: { $gte: startOfWeek(now) } } },
+      { $match: { user: user._id, spentAt: { $gte: startOfAppWeek(now) } } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]),
     Expense.aggregate([
-      { $match: { user: user._id, spentAt: { $gte: startOfMonth(now) } } },
+      { $match: { user: user._id, spentAt: { $gte: startOfAppMonth(now) } } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]),
     Expense.aggregate([
-      { $match: { user: user._id, spentAt: { $gte: startOfMonth(now) } } },
+      { $match: { user: user._id, spentAt: { $gte: startOfAppMonth(now) } } },
       { $group: { _id: "$category", total: { $sum: "$amount" }, count: { $sum: 1 } } },
       { $sort: { total: -1 } }
     ]),

@@ -1,33 +1,17 @@
 import { Task } from "../models/Task.js";
 import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
+import { addAbsoluteDays, endOfAppDay, formatInAppTimeZone, startOfAppDay } from "../utils/timezone.js";
 import { getExpenseSummary } from "./expense.service.js";
 
-const startOfDay = (date) => {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-};
-
-const endOfDay = (date) => {
-  const next = new Date(date);
-  next.setHours(23, 59, 59, 999);
-  return next;
-};
-
-const addDays = (date, days) => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-};
-
 const formatTaskTime = (value) =>
-  new Intl.DateTimeFormat("uz-UZ", {
+  formatInAppTimeZone(value, {
     day: "numeric",
     month: "long",
     hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(value));
+    minute: "2-digit",
+    hourCycle: "h23"
+  });
 
 const mapTaskCard = (task) => ({
   id: String(task._id),
@@ -105,11 +89,11 @@ export const getDashboardSummary = async (userId) => {
   }
 
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  const tomorrowStart = startOfDay(addDays(now, 1));
-  const tomorrowEnd = endOfDay(addDays(now, 1));
-  const weekEnd = endOfDay(addDays(now, 7));
+  const todayStart = startOfAppDay(now);
+  const todayEnd = endOfAppDay(now);
+  const tomorrowStart = startOfAppDay(addAbsoluteDays(now, 1));
+  const tomorrowEnd = endOfAppDay(addAbsoluteDays(now, 1));
+  const weekEnd = endOfAppDay(addAbsoluteDays(now, 7));
 
   const [allTasks, financeSummary] = await Promise.all([
     Task.find({ user: userId }).sort({ scheduleAt: 1, createdAt: -1 }).lean(),

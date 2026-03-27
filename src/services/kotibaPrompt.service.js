@@ -166,6 +166,8 @@ Reminder rules:
 - "qil", "tayyorla", "tekshir", "bor", "uchrash", "qo'ng'iroq qil" => task bo'lishi mumkin
 - "10 minut oldin", "30 minut oldin", "1 soat oldin", "1 kun oldin" => remind_before_minutes ga yozilsin
 - "5 minutdan keyin eslat", "2 soatdan keyin ayt", "1 kundan keyin eslat" => schedule_at hozirgi vaqtdan hisoblab to'ldirilsin
+- Nisbiy vaqt qoidasi eng ustun: agar foydalanuvchi "5 minutdan keyin", "2 soatdan keyin", "1 kundan keyin" desa, uni hech qachon ertaga yoki boshqa soatga aylantirmang
+- Masalan "5 minutdan keyin suv ichishni eslat" degan gapni "ertaga 14:00" kabi noto'g'ri vaqtga o'zgartirish qat'iyan mumkin emas
 - "ofisda", "uyda", "filialda", "bankda", "shifoxonada" kabi joy nomlari bo'lsa location_label ga yozilsin
 - remind_before_minutes > 0 bo'lsa action_text kelajakdagi gap bo'lsin
 - Misol: "10 minutdan keyin uchrashuvingiz bor"
@@ -176,6 +178,7 @@ Reminder rules:
 Time inference rules:
 - schedule_at faqat tushunarli vaqt bo'lsa to'ldirilsin
 - "X minutdan keyin", "X soatdan keyin", "X kundan keyin" kabi nisbiy vaqtlar schedule_at uchun tushunarli vaqt hisoblanadi
+- Nisbiy vaqt topilsa, schedule_at ni hozirgi vaqtga qo'shib hisoblang; bunday holatda foydalanuvchi alohida sana yoki soat aytmagan bo'lsa, bugun/ertaga inferensiya qilmang
 - "ertalab" => 09:00
 - "tushda" => 13:00
 - "kechqurun" => 20:00
@@ -288,6 +291,9 @@ Expected behavior: task/reminder, remind_before_minutes=10, action_text: "10 min
 
 Input: "5 minutdan keyin suv ichishni eslat"
 Expected behavior: reminder intent, schedule_at hozir + 5 minut, remind_before_minutes=0.
+
+Input: "2 soatdan keyin yig'ilishni eslat"
+Expected behavior: reminder intent, schedule_at hozir + 2 soat, ertaga yoki alohida soatga o'tkazilmaydi.
 
 Input: "Ertaga soat 8 da ofisdagi yig'ilishni eslat"
 Expected behavior: reminder, task ichida location_label "Ofis" yoki "Ofisdagi yig'ilish joyi" kabi qisqa ko'rinishda to'ldiriladi.
