@@ -1,6 +1,7 @@
 import axios from "axios";
 import { env } from "../config/env.js";
 import { HttpError } from "../utils/httpError.js";
+import { normalizeUzbekVoiceUrl } from "../utils/uzbekVoiceUrl.js";
 
 const extractRemoteAudioUrl = (payload) =>
   payload?.result?.url ??
@@ -18,13 +19,15 @@ const parseJsonBuffer = (buffer) => {
 };
 
 export const synthesizeUzbekSpeech = async (text) => {
-  if (!env.uzbekVoiceTtsUrl) {
+  const ttsUrl = normalizeUzbekVoiceUrl(env.uzbekVoiceTtsUrl);
+
+  if (!ttsUrl) {
     throw new HttpError(500, "UZBEKVOICE_TTS_URL sozlanmagan");
   }
 
   try {
     const { data, headers } = await axios.post(
-      env.uzbekVoiceTtsUrl,
+      ttsUrl,
       {
         text,
         model: env.uzbekVoiceTtsModel,

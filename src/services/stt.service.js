@@ -2,9 +2,12 @@ import axios from "axios";
 import FormData from "form-data";
 import { env } from "../config/env.js";
 import { HttpError } from "../utils/httpError.js";
+import { normalizeUzbekVoiceUrl } from "../utils/uzbekVoiceUrl.js";
 
 export const transcribeUzbekAudio = async (audioBuffer, filename, mimeType) => {
-  if (!env.uzbekVoiceSttUrl) {
+  const sttUrl = normalizeUzbekVoiceUrl(env.uzbekVoiceSttUrl);
+
+  if (!sttUrl) {
     throw new HttpError(500, "UZBEKVOICE_STT_URL sozlanmagan");
   }
 
@@ -19,7 +22,7 @@ export const transcribeUzbekAudio = async (audioBuffer, filename, mimeType) => {
   formData.append("blocking", "true");
 
   try {
-    const { data } = await axios.post(env.uzbekVoiceSttUrl, formData, {
+    const { data } = await axios.post(sttUrl, formData, {
       headers: {
         ...formData.getHeaders(),
         Authorization: env.uzbekVoiceApiKey
