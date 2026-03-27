@@ -2,6 +2,7 @@ import { Router } from "express";
 import authRouter from "./auth.routes.js";
 import assistantRouter from "./assistant.routes.js";
 import conversationRouter from "./conversation.routes.js";
+import cronRouter from "./cron.routes.js";
 import dashboardRouter from "./dashboard.routes.js";
 import noteRouter from "./note.routes.js";
 import voiceRouter from "./voice.routes.js";
@@ -17,6 +18,7 @@ apiRouter.get("/health", (req, res) => {
 });
 
 apiRouter.use("/auth", authRouter);
+apiRouter.use("/cron", cronRouter);
 apiRouter.use(requireAuth);
 apiRouter.use("/dashboard", dashboardRouter);
 apiRouter.use("/assistant", assistantRouter);
