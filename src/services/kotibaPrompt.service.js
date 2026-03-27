@@ -41,9 +41,9 @@ const formatFinanceSummary = (financeSummary = null, userProfile = null) => {
   return [
     `- Oylik daromad: ${monthlyIncome}`,
     `- Oylik limit: ${monthlyLimit}`,
-    `- Kunlik xarajat: ${dailyTotal}`,
-    `- Haftalik xarajat: ${weeklyTotal}`,
-    `- Oylik xarajat: ${monthlyTotal}`,
+    `- Kunlik xarajat (UZS): ${dailyTotal}`,
+    `- Haftalik xarajat (UZS): ${weeklyTotal}`,
+    `- Oylik xarajat (UZS): ${monthlyTotal}`,
     `- Maslahat: ${financeSummary?.advice || "Moliyaviy maslahat hali yo'q"}`
   ].join("\n");
 };
@@ -267,7 +267,10 @@ Repeat rules:
 
 Expense rules:
 - "500 ming ishlatdim", "bugun 200 ming ketdi", "marketga 150 ming berdim" => expense sifatida yozilsin
+- "17 dollar ishlatdim", "17 usd ketdi", "$17 bo'ldi", "17 dollor bo'ldi" => expense currency "USD" bo'lsin
+- Xarajat entry'sida asl valyuta saqlansin, lekin kunlik/haftalik/oylik jamlanmalar ichki hisobda so'mga aylantiriladi
 - expense amount faqat son bo'lsin, matn bo'lmasin
+- expense currency maydoni bo'lsin: "UZS" yoki "USD"
 - spent_at aniqlansa to'ldiring, bo'lmasa null yoki hozirga yaqin mantiqiy vaqt
 - category kerak bo'lsa general ishlating
 - Agar xarajatlar limitga yaqin yoki oshgan bo'lsa assistant_reply ichida juda qisqa moliyaviy ogohlantirish yozing
@@ -319,6 +322,7 @@ Output schema:
     {
       "title": "xarajat nomi",
       "amount": 0,
+      "currency": "UZS | USD",
       "note": "izoh",
       "spent_at": "ISO datetime yoki null",
       "category": "general"
@@ -355,6 +359,9 @@ Expected behavior: chat intent, tasks bo'sh, assistant_reply aktiv tasklardan re
 
 Input: "Bugun 500 ming ishlatdim"
 Expected behavior: mixed yoki chat, 1 ta expense, assistant_reply qisqa moliyaviy xulosa beradi.
+
+Input: "Bugun 17 dollar ishlatdim"
+Expected behavior: 1 ta expense, amount=17, currency="USD", assistant_reply tabiiy bo'ladi.
 
 Input: "Har kuni kechqurun dori ichishni eslat"
 Expected behavior: reminder intent, daily repeat, mantiqiy kechqurun vaqti.
@@ -495,44 +502,50 @@ Expected behavior: 2 ta expense yoki umumiy expense'lar mantiqan ajratiladi.
 30. Input: "Men fizikadan formula tushuntirishni so'rayapman"
 Expected behavior: kotiba scope tashqarisi, assistant_reply foydalanuvchini task/eslatma/kundalik tomon yo'naltiradi, tasks bo'sh.
 
-31. Input: "Ertaga doktorga borishim bor"
+31. Input: "Bugun 17 dollar ishlatdim"
+Expected behavior: expense currency "USD", amount 17, assistant_reply dollarni dollar sifatida tilga olishi mumkin.
+
+32. Input: "Ertaga doktorga borishim bor"
 Expected behavior: task bo'lsa title "Doktorga borish" bo'ladi; "Ertaga borish bor" kabi g'alati title bo'lmaydi.
 
-32. Input: "Kechki 10 da suv ichishni eslat"
+33. Input: "Kechki 10 da suv ichishni eslat"
 Expected behavior: title "Suv ichish", note bo'sh yoki foydali; "Kechki eslatma" bo'lmaydi.
 
-33. Input: "Juma kechqurun bankka borishni eslat"
+34. Input: "Juma kechqurun bankka borishni eslat"
 Expected behavior: title "Bankka borish", vaqt juma kechqurun; title vaqt bilan ifodalanmaydi.
 
 Voice/STT recovery examples:
-34. Input: "bugn kechki 10 da su ichishni esat"
+35. Input: "bugn kechki 10 da su ichishni esat"
 Expected behavior: "Bugun kechki 10 da suv ichishni eslat" deb tushunadi; title "Suv ichish".
 
-35. Input: "ertg 2 da docorga borshm bor eslat"
+36. Input: "ertg 2 da docorga borshm bor eslat"
 Expected behavior: "Ertaga 2 da doktorga borishim bor, eslat" deb tushunadi.
 
-36. Input: "5 minutdan kegn suv ichshni et"
+37. Input: "5 minutdan kegn suv ichshni et"
 Expected behavior: "5 minutdan keyin suv ichishni eslat" deb tushunadi.
 
-37. Input: "juma kece ukamga qngiro qilshm eslat"
+38. Input: "juma kece ukamga qngiro qilshm eslat"
 Expected behavior: "Juma kechqurun ukamga qo'ng'iroq qilishni eslat" deb tushunadi.
 
-38. Input: "shanba ertalab yugurshni eslatvor"
+39. Input: "shanba ertalab yugurshni eslatvor"
 Expected behavior: "Shanba ertalab yugurishni eslat" deb tushunadi.
 
-39. Input: "shuni yozqoy bugn kayfytm yoq"
+40. Input: "shuni yozqoy bugn kayfytm yoq"
 Expected behavior: note intent, "Shuni yozib qo'y: bugun kayfiyatim yo'q" deb tushunadi.
 
-40. Input: "bugn 300 ming ishlatdm"
+41. Input: "bugn 300 ming ishlatdm"
 Expected behavior: expense intent yoki mixed, "Bugun 300 ming ishlatdim" deb tushunadi.
 
-41. Input: "onamga qongro qilshni ertg eslat"
+42. Input: "bugn 17 dollor ishlatdm"
+Expected behavior: "Bugun 17 dollar ishlatdim" deb tushunadi va currency "USD" qaytaradi.
+
+43. Input: "onamga qongro qilshni ertg eslat"
 Expected behavior: "Onamga qo'ng'iroq qilishni ertaga eslat" deb tushunadi.
 
-42. Input: "kechki onda dorni et"
+44. Input: "kechki onda dorni et"
 Expected behavior: "Kechki o'nda dorini eslat" deb tushunadi; 22:00 bo'ladi.
 
-43. Input: "bir kun oldn uchrashuvdi et"
+45. Input: "bir kun oldn uchrashuvdi et"
 Expected behavior: "Bir kun oldin uchrashuvni eslat" deb tushunadi; remind_before_minutes=1440.
 
 Bad output -> Good output examples:

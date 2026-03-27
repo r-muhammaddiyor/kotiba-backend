@@ -25,6 +25,22 @@ const expenseSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    currency: {
+      type: String,
+      enum: ["UZS", "USD"],
+      default: "UZS",
+      trim: true
+    },
+    exchangeRate: {
+      type: Number,
+      min: 0,
+      default: 1
+    },
+    amountUzs: {
+      type: Number,
+      min: 0,
+      default: null
+    },
     spentAt: {
       type: Date,
       required: true,

@@ -109,7 +109,7 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
       tasks: assistantPayload.tasks,
       sourceText: normalizedText
     }),
-    createAssistantExpenses(userId, assistantPayload.expenses),
+    createAssistantExpenses(userId, assistantPayload.expenses, normalizedText),
     createAssistantNotes(userId, assistantPayload.notes)
   ]);
 

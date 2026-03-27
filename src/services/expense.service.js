@@ -1,14 +1,69 @@
 import { Expense } from "../models/Expense.js";
 import { User } from "../models/User.js";
+import { env } from "../config/env.js";
 import { HttpError } from "../utils/httpError.js";
 import { startOfAppDay, startOfAppMonth, startOfAppWeek } from "../utils/timezone.js";
 
-const formatCurrency = (amount, currency = "UZS") =>
-  new Intl.NumberFormat("uz-UZ", {
+const formatCurrency = (amount, currency = "UZS") => {
+  if (currency === "USD") {
+    return `$${Number(amount || 0).toFixed(Number.isInteger(Number(amount || 0)) ? 0 : 2)}`;
+  }
+
+  return new Intl.NumberFormat("uz-UZ", {
     style: "currency",
     currency,
     maximumFractionDigits: 0
   }).format(amount || 0);
+};
+
+const amountUzsExpression = { $ifNull: ["$amountUzs", "$amount"] };
+const dollarPattern = /\b(usd|dollar|dollor|dolar)\b|\$/iu;
+const uzsPattern = /\b(so'm|som|uzs|ming|million)\b/iu;
+
+const normalizeCurrency = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase();
+
+  if (["USD", "$", "DOLLAR", "DOLLOR", "DOLAR"].includes(normalized)) {
+    return "USD";
+  }
+
+  return "UZS";
+};
+
+const inferCurrency = (...sources) => {
+  for (const source of sources) {
+    const text = String(source || "").trim();
+    if (!text) {
+      continue;
+    }
+
+    if (dollarPattern.test(text)) {
+      return "USD";
+    }
+
+    if (uzsPattern.test(text)) {
+      return "UZS";
+    }
+  }
+
+  return "UZS";
+};
+
+const getExchangeRate = (currency) => {
+  if (currency === "USD") {
+    return Number.isFinite(env.usdToUzsRate) && env.usdToUzsRate > 0 ? env.usdToUzsRate : 12172.18;
+  }
+
+  return 1;
+};
+
+const convertAmountToUzs = (amount, currency, exchangeRate) =>
+  currency === "USD" ? Math.round(amount * exchangeRate) : Math.round(amount);
+
+const normalizeAmountByCurrency = (amount, currency) =>
+  currency === "USD" ? Math.round(amount * 100) / 100 : Math.floor(amount);
 
 const categoryLabels = {
   general: "Umumiy",
@@ -48,7 +103,7 @@ const buildExpenseAdvice = ({ currency, dayTotal, monthlyIncome, monthlyLimit, m
 const buildExpenseSnapshot = ({ user, dayTotal, weekTotal, monthTotal }) => {
   const monthlyIncome = user.finance?.monthlyIncome || 0;
   const monthlyLimit = user.finance?.monthlyLimit || (monthlyIncome ? Math.round(monthlyIncome * 0.7) : 0);
-  const currency = user.finance?.currency || "UZS";
+  const currency = "UZS";
   const usageRatio = monthlyLimit > 0 ? monthTotal / monthlyLimit : 0;
 
   return {
@@ -72,6 +127,8 @@ const buildExpenseSnapshot = ({ user, dayTotal, weekTotal, monthTotal }) => {
 const normalizeExpenseInput = (payload, options = {}) => {
   const title = String(payload?.title ?? payload?.name ?? "Xarajat").trim();
   const amount = Number(payload?.amount);
+  const currency = normalizeCurrency(payload?.currency || inferCurrency(payload?.title, payload?.note, options.sourceText));
+  const exchangeRate = getExchangeRate(currency);
 
   if (!title) {
     throw new HttpError(400, "Xarajat nomi kerak");
@@ -89,7 +146,10 @@ const normalizeExpenseInput = (payload, options = {}) => {
   return {
     title,
     note: String(payload?.note ?? "").trim(),
-    amount: Math.floor(amount),
+    amount: normalizeAmountByCurrency(amount, currency),
+    currency,
+    exchangeRate,
+    amountUzs: convertAmountToUzs(amount, currency, exchangeRate),
     spentAt,
     category: String(payload?.category ?? "general").trim() || "general",
     source: options.source ?? "manual"
@@ -104,8 +164,13 @@ export const createExpense = async (userId, payload, options = {}) => {
   });
 };
 
-export const createAssistantExpenses = async (userId, expenses = []) => {
-  const docs = expenses.map((expense) => normalizeExpenseInput(expense, { source: "assistant" }));
+export const createAssistantExpenses = async (userId, expenses = [], sourceText = "") => {
+  const docs = expenses.map((expense) =>
+    normalizeExpenseInput(expense, {
+      source: "assistant",
+      sourceText: expense?.source_text || sourceText || expense?.note || expense?.title
+    })
+  );
   if (!docs.length) {
     return [];
   }
@@ -119,14 +184,26 @@ export const createAssistantExpenses = async (userId, expenses = []) => {
 };
 
 export const updateExpense = async (userId, expenseId, payload) => {
-  const update = {};
+  const expense = await Expense.findOne({ _id: expenseId, user: userId });
+  if (!expense) {
+    throw new HttpError(404, "Xarajat topilmadi");
+  }
+
+  const next = {
+    title: expense.title,
+    note: expense.note,
+    amount: expense.amount,
+    currency: expense.currency || "UZS",
+    spentAt: expense.spentAt,
+    category: expense.category || "general"
+  };
 
   if (Object.prototype.hasOwnProperty.call(payload, "title")) {
-    update.title = String(payload.title || "").trim();
+    next.title = String(payload.title || "").trim();
   }
 
   if (Object.prototype.hasOwnProperty.call(payload, "note")) {
-    update.note = String(payload.note || "").trim();
+    next.note = String(payload.note || "").trim();
   }
 
   if (Object.prototype.hasOwnProperty.call(payload, "amount")) {
@@ -134,28 +211,30 @@ export const updateExpense = async (userId, expenseId, payload) => {
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new HttpError(400, "Xarajat summasi noto'g'ri");
     }
-    update.amount = Math.floor(amount);
+    next.amount = normalizeAmountByCurrency(amount, next.currency);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "currency")) {
+    next.currency = normalizeCurrency(payload.currency);
+    next.amount = normalizeAmountByCurrency(next.amount, next.currency);
   }
 
   if (Object.prototype.hasOwnProperty.call(payload, "spentAt")) {
-    update.spentAt = payload.spentAt ? new Date(payload.spentAt) : new Date();
-    if (Number.isNaN(update.spentAt.getTime())) {
+    next.spentAt = payload.spentAt ? new Date(payload.spentAt) : new Date();
+    if (Number.isNaN(next.spentAt.getTime())) {
       throw new HttpError(400, "Xarajat vaqti noto'g'ri");
     }
   }
 
   if (Object.prototype.hasOwnProperty.call(payload, "category")) {
-    update.category = String(payload.category || "general").trim() || "general";
+    next.category = String(payload.category || "general").trim() || "general";
   }
 
-  const expense = await Expense.findOneAndUpdate({ _id: expenseId, user: userId }, update, {
-    new: true,
-    runValidators: true
-  });
+  next.exchangeRate = getExchangeRate(next.currency);
+  next.amountUzs = convertAmountToUzs(next.amount, next.currency, next.exchangeRate);
 
-  if (!expense) {
-    throw new HttpError(404, "Xarajat topilmadi");
-  }
+  expense.set(next);
+  await expense.save();
 
   return expense;
 };
@@ -185,15 +264,15 @@ export const getExpenseSnapshot = async (userId) => {
       $facet: {
         daily: [
           { $match: { spentAt: { $gte: startOfAppDay(now) } } },
-          { $group: { _id: null, total: { $sum: "$amount" } } }
+          { $group: { _id: null, total: { $sum: amountUzsExpression } } }
         ],
         weekly: [
           { $match: { spentAt: { $gte: startOfAppWeek(now) } } },
-          { $group: { _id: null, total: { $sum: "$amount" } } }
+          { $group: { _id: null, total: { $sum: amountUzsExpression } } }
         ],
         monthly: [
           { $match: { spentAt: { $gte: startOfAppMonth(now) } } },
-          { $group: { _id: null, total: { $sum: "$amount" } } }
+          { $group: { _id: null, total: { $sum: amountUzsExpression } } }
         ]
       }
     }
@@ -217,19 +296,19 @@ export const getExpenseSummary = async (userId) => {
   const [daily, weekly, monthly, monthlyByCategory, recentExpenses] = await Promise.all([
     Expense.aggregate([
       { $match: { user: user._id, spentAt: { $gte: startOfAppDay(now) } } },
-      { $group: { _id: null, total: { $sum: "$amount" } } }
+      { $group: { _id: null, total: { $sum: amountUzsExpression } } }
     ]),
     Expense.aggregate([
       { $match: { user: user._id, spentAt: { $gte: startOfAppWeek(now) } } },
-      { $group: { _id: null, total: { $sum: "$amount" } } }
+      { $group: { _id: null, total: { $sum: amountUzsExpression } } }
     ]),
     Expense.aggregate([
       { $match: { user: user._id, spentAt: { $gte: startOfAppMonth(now) } } },
-      { $group: { _id: null, total: { $sum: "$amount" } } }
+      { $group: { _id: null, total: { $sum: amountUzsExpression } } }
     ]),
     Expense.aggregate([
       { $match: { user: user._id, spentAt: { $gte: startOfAppMonth(now) } } },
-      { $group: { _id: "$category", total: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $group: { _id: "$category", total: { $sum: amountUzsExpression }, count: { $sum: 1 } } },
       { $sort: { total: -1 } }
     ]),
     Expense.find({ user: user._id }).sort({ spentAt: -1, createdAt: -1 }).limit(12).lean()
