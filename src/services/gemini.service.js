@@ -127,8 +127,8 @@ export const getKotibaReply = async (userText, context = {}) => {
         body: JSON.stringify({
           model: env.openAiModel,
           instructions: systemPrompt,
-          input: `Foydalanuvchi xabari uchun faqat valid JSON qaytaring. Xabar: ${userText}`,
-          temperature: 0.1,
+          input: `Foydalanuvchi xabari uchun faqat valid JSON qaytaring. Kotiba vazifasidan chiqib ketmang. Xabar: ${userText}`,
+          temperature: 0,
           text: {
             format: {
               type: "json_object"
@@ -172,8 +172,8 @@ export const getKotibaReply = async (userText, context = {}) => {
             },
             generationConfig: {
               responseMimeType: "application/json",
-              temperature: 0.1,
-              topP: 0.9
+              temperature: 0,
+              topP: 0.4
             },
             contents: [
               {
