@@ -4,6 +4,8 @@ import { HttpError } from "../utils/httpError.js";
 import { addAbsoluteDays, endOfAppDay, formatInAppTimeZone, startOfAppDay } from "../utils/timezone.js";
 import { getExpenseSummary } from "./expense.service.js";
 
+const OVERDUE_GRACE_MINUTES = 30;
+
 const formatTaskTime = (value) =>
   formatInAppTimeZone(value, {
     day: "numeric",
@@ -26,7 +28,7 @@ const mapTaskCard = (task) => ({
 
 const buildDailyBriefing = ({ todayTasks, overdueTasks }) => {
   if (overdueTasks.length) {
-    return `Sizda o'tib ketgan ${overdueTasks.length} ta vazifa bor. Avval shularni qayta vaqtga qo'yib olsak yaxshi bo'ladi.`;
+    return `Sizda hali yopilmagan ${overdueTasks.length} ta vazifa bor. Avval shularni qayta tartiblab olsak, kuningiz yengillashadi.`;
   }
 
   if (!todayTasks.length) {
@@ -57,7 +59,7 @@ const buildSmartSuggestions = ({ todayTasks, overdueTasks, financeSummary, pendi
   const suggestions = [];
 
   if (overdueTasks.length) {
-    suggestions.push("O'tib ketgan vazifalarni qayta rejalashtir");
+    suggestions.push("Yopilmagan vazifalarni qayta rejalashtir");
   }
 
   if (todayTasks.length) {
@@ -82,6 +84,14 @@ const buildSmartSuggestions = ({ todayTasks, overdueTasks, financeSummary, pendi
   return [...new Set(suggestions)].slice(0, 4);
 };
 
+const hasOverdueGraceElapsed = (scheduleAt, now = new Date()) => {
+  if (!scheduleAt) {
+    return false;
+  }
+
+  return new Date(scheduleAt).getTime() + OVERDUE_GRACE_MINUTES * 60 * 1000 <= now.getTime();
+};
+
 export const getDashboardSummary = async (userId) => {
   const user = await User.findById(userId).lean();
   if (!user) {
@@ -104,7 +114,7 @@ export const getDashboardSummary = async (userId) => {
   const completedCount = allTasks.filter((task) => task.isCompleted).length;
   const scheduledPending = pendingTasks.filter((task) => task.scheduleAt);
   const overdueTasks = scheduledPending
-    .filter((task) => new Date(task.scheduleAt) < now)
+    .filter((task) => hasOverdueGraceElapsed(task.scheduleAt, now))
     .slice(0, 5)
     .map(mapTaskCard);
   const todayTasks = scheduledPending
@@ -139,7 +149,7 @@ export const getDashboardSummary = async (userId) => {
         ? overdueTasks.map((task) => ({
             id: task.id,
             title: task.title,
-            body: `${task.title} vaqti o'tib ketgan. Qayta vaqt belgilashni unutmang.`,
+            body: `${task.title} hali bajarilmagan ko'rinadi. Qayta vaqt belgilab qo'ysak, esdan chiqmaydi.`,
             scheduleAt: task.scheduleAt,
             formattedScheduleAt: task.formattedScheduleAt
           }))
