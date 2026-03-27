@@ -5,58 +5,48 @@ import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
 import { getKotibaReply } from "./gemini.service.js";
 import { buildSmartSuggestions } from "./suggestion.service.js";
-import { createAssistantTasks } from "./task.service.js";
+import { buildDefaultActionText, createAssistantTasks } from "./task.service.js";
 import { synthesizeUzbekSpeech } from "./tts.service.js";
 import { createConversationMessages } from "./conversation.service.js";
 import { createAssistantExpenses, getExpenseSnapshot } from "./expense.service.js";
 import { createAssistantNotes } from "./note.service.js";
+import { hasAbsoluteTimeCue, inferAbsoluteScheduleAt, inferRelativeScheduleMinutes, inferRemindBeforeMinutes } from "../utils/taskTiming.js";
 
 const buildIsoDateAfterMinutes = (minutesFromNow) => new Date(Date.now() + minutesFromNow * 60 * 1000).toISOString();
 
-const absoluteTimeCuePattern =
-  /\b(soat\s*\d{1,2}(:\d{2})?|\d{1,2}:\d{2}|bugun|ertaga|indin|dushanba|seshanba|chorshanba|payshanba|juma|shanba|yakshanba|ertalab|kechqurun|tushda)\b/i;
+const hydrateTaskTiming = (payload, userText) => {
+  const relativeMinutes = inferRelativeScheduleMinutes(userText);
+  const absoluteScheduleAt = inferAbsoluteScheduleAt(userText);
+  const remindBeforeMinutes = inferRemindBeforeMinutes(userText);
+  const hasAbsoluteCue = hasAbsoluteTimeCue(userText);
 
-const inferRelativeMinutes = (text) => {
-  const normalized = String(text || "").toLowerCase().trim();
-
-  const minuteMatch = normalized.match(/(\d+)\s*(daqiqa|minut|min)\s*(dan\s*)?(keyin|so'ng|song)/);
-  if (minuteMatch) {
-    return Number(minuteMatch[1]);
-  }
-
-  const hourMatch = normalized.match(/(\d+)\s*soat\s*(dan\s*)?(keyin|so'ng|song)/);
-  if (hourMatch) {
-    return Number(hourMatch[1]) * 60;
-  }
-
-  const dayMatch = normalized.match(/(\d+)\s*kun\s*(dan\s*)?(keyin|so'ng|song)/);
-  if (dayMatch) {
-    return Number(dayMatch[1]) * 24 * 60;
-  }
-
-  return null;
-};
-
-const hydrateRelativeTasks = (payload, userText) => {
-  const relativeMinutes = inferRelativeMinutes(userText);
-  const hasAbsoluteTimeCue = absoluteTimeCuePattern.test(String(userText || ""));
-
-  if (!relativeMinutes || !Array.isArray(payload?.tasks) || !payload.tasks.length) {
+  if (!Array.isArray(payload?.tasks) || !payload.tasks.length) {
     return payload;
   }
 
   return {
     ...payload,
     tasks: payload.tasks.map((task) => {
-      if (task.schedule_at && hasAbsoluteTimeCue) {
-        return task;
+      const nextTask = {
+        ...task
+      };
+
+      if (relativeMinutes) {
+        nextTask.schedule_at = buildIsoDateAfterMinutes(relativeMinutes);
+        nextTask.remind_before_minutes = 0;
+      } else if (absoluteScheduleAt && (!task.schedule_at || hasAbsoluteCue)) {
+        nextTask.schedule_at = absoluteScheduleAt;
       }
 
-      return {
-        ...task,
-        schedule_at: buildIsoDateAfterMinutes(relativeMinutes),
-        remind_before_minutes: 0
-      };
+      if (remindBeforeMinutes !== null) {
+        nextTask.remind_before_minutes = remindBeforeMinutes;
+      }
+
+      if (!nextTask.action_text || relativeMinutes || absoluteScheduleAt || remindBeforeMinutes !== null) {
+        nextTask.action_text = buildDefaultActionText(nextTask.title || "Eslatma", Number(nextTask.remind_before_minutes || 0));
+      }
+
+      return nextTask;
     })
   };
 };
@@ -101,7 +91,7 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
   }
 
   const assistantContext = await getAssistantContext(userId);
-  const assistantPayload = hydrateRelativeTasks(await getKotibaReply(normalizedText, assistantContext), normalizedText);
+  const assistantPayload = hydrateTaskTiming(await getKotibaReply(normalizedText, assistantContext), normalizedText);
   const [createdTasks, createdExpenses, createdNotes] = await Promise.all([
     createAssistantTasks({
       userId,

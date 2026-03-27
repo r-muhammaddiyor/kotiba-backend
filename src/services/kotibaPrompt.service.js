@@ -165,10 +165,14 @@ Reminder rules:
 - "eslat", "eslatib qo'y", "unutmay", "menga ayt", "eslatma qo'y" => odatda reminder yoki mixed
 - "qil", "tayyorla", "tekshir", "bor", "uchrash", "qo'ng'iroq qil" => task bo'lishi mumkin
 - "10 minut oldin", "30 minut oldin", "1 soat oldin", "1 kun oldin" => remind_before_minutes ga yozilsin
+- "bir kun oldin", "bir soat oldin", "yarim soat oldin", "1 kun avval" ham xuddi shu ma'noda tushunilsin
 - "5 minutdan keyin eslat", "2 soatdan keyin ayt", "1 kundan keyin eslat" => schedule_at hozirgi vaqtdan hisoblab to'ldirilsin
 - Nisbiy vaqt qoidasi eng ustun: agar foydalanuvchi "5 minutdan keyin", "2 soatdan keyin", "1 kundan keyin" desa, uni hech qachon ertaga yoki boshqa soatga aylantirmang
 - Masalan "5 minutdan keyin suv ichishni eslat" degan gapni "ertaga 14:00" kabi noto'g'ri vaqtga o'zgartirish qat'iyan mumkin emas
 - "ofisda", "uyda", "filialda", "bankda", "shifoxonada" kabi joy nomlari bo'lsa location_label ga yozilsin
+- "ertalabki 10", "ertalab 10" => 10:00
+- "kechki 10", "kechqurun 10", "kechasi 10" => 22:00
+- "tushdagi 2", "kunduzi 2" => 14:00
 - remind_before_minutes > 0 bo'lsa action_text kelajakdagi gap bo'lsin
 - Misol: "10 minutdan keyin uchrashuvingiz bor"
 - Misol: "1 soatdan keyin yig'ilishingiz bor"
@@ -179,11 +183,20 @@ Time inference rules:
 - schedule_at faqat tushunarli vaqt bo'lsa to'ldirilsin
 - "X minutdan keyin", "X soatdan keyin", "X kundan keyin" kabi nisbiy vaqtlar schedule_at uchun tushunarli vaqt hisoblanadi
 - Nisbiy vaqt topilsa, schedule_at ni hozirgi vaqtga qo'shib hisoblang; bunday holatda foydalanuvchi alohida sana yoki soat aytmagan bo'lsa, bugun/ertaga inferensiya qilmang
+- Kun qismi muhim: "ertalabki 10" va "kechki 10" bir xil emas
+- Agar foydalanuvchi "kechki 10" desa 22:00 deb o'ylang, 10:00 emas
+- Agar foydalanuvchi "ertalabki 10" desa 10:00 deb o'ylang, 22:00 emas
+- Agar foydalanuvchi "2 ga" desa faqat kontekstdagi kun qismi bo'lsa shunga moslang; bo'lmasa qo'pol taxmin qilmang
 - "ertalab" => 09:00
 - "tushda" => 13:00
 - "kechqurun" => 20:00
 - "bugun", "ertaga", hafta kunlari va takrorlanish ifodalaridan foydalanib mantiqiy vaqt chiqaring
 - Vaqtni aniqlab bo'lmasa schedule_at = null
+
+Dialect and colloquial rules:
+- Sheva va og'zaki shakllarni tushuning: "kegin", "keyn", "so'ng", "avval", "bitta", "ikkita" kabi shakllar standart ma'no bilan bir xil
+- Foydalanuvchi adabiy tilda gapirmasa ham ma'noni to'g'ri oling
+- Masalan "5 minutdan kegin eslat", "bir kun avval et", "kechki 10 ga qo'y" kabi gaplar ham to'g'ri schedule_at va remind_before_minutes ga aylansin
 
 Repeat rules:
 - Takrorlanish bo'lmasa repeat.type = "none"
@@ -294,6 +307,18 @@ Expected behavior: reminder intent, schedule_at hozir + 5 minut, remind_before_m
 
 Input: "2 soatdan keyin yig'ilishni eslat"
 Expected behavior: reminder intent, schedule_at hozir + 2 soat, ertaga yoki alohida soatga o'tkazilmaydi.
+
+Input: "Ertaga kechki 10 da dorini eslat"
+Expected behavior: schedule_at ertaga 22:00 bo'ladi, 10:00 emas.
+
+Input: "Ertaga ertalabki 10 ga uchrashuv qo'y"
+Expected behavior: schedule_at ertaga 10:00 bo'ladi.
+
+Input: "Ertaga soat 2 dagi uchrashuvni bir kun oldin eslat"
+Expected behavior: schedule_at ertaga 14:00 yoki kontekstdagi aniq vaqt, remind_before_minutes=1440.
+
+Input: "5 minutdan kegin suv ichishni eslat"
+Expected behavior: "kegin" sheva bo'lsa ham schedule_at hozir + 5 minut bo'ladi.
 
 Input: "Ertaga soat 8 da ofisdagi yig'ilishni eslat"
 Expected behavior: reminder, task ichida location_label "Ofis" yoki "Ofisdagi yig'ilish joyi" kabi qisqa ko'rinishda to'ldiriladi.

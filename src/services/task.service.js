@@ -39,22 +39,24 @@ const buildReminderAt = (scheduleAt, remindBeforeMinutes) => {
   return new Date(scheduleAt.getTime() - remindBeforeMinutes * 60 * 1000);
 };
 
-const buildDefaultActionText = (title, remindBeforeMinutes) => {
+export const buildDefaultActionText = (title, remindBeforeMinutes) => {
+  const normalizedTitle = String(title || "eslatma").trim().toLowerCase();
+
   if (remindBeforeMinutes >= 1440) {
     const days = Math.floor(remindBeforeMinutes / 1440);
-    return `${days} kundan keyin ${title.toLowerCase()} bor`;
+    return days === 1 ? `Ertaga ${normalizedTitle} bor` : `${days} kundan keyin ${normalizedTitle} bor`;
   }
 
   if (remindBeforeMinutes >= 60) {
     const hours = Math.floor(remindBeforeMinutes / 60);
-    return `${hours} soatdan keyin ${title.toLowerCase()} bor`;
+    return `${hours} soatdan keyin ${normalizedTitle} bor`;
   }
 
   if (remindBeforeMinutes > 0) {
-    return `${remindBeforeMinutes} minutdan keyin ${title.toLowerCase()} bor`;
+    return `${remindBeforeMinutes} minutdan keyin ${normalizedTitle} bor`;
   }
 
-  return `${title} vaqti keldi`;
+  return `${String(title || "Eslatma")} vaqti keldi`;
 };
 
 export const buildTaskDocument = (taskInput, options = {}) => {

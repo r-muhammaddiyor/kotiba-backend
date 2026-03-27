@@ -44,6 +44,13 @@ export const startOfAppMonth = (date = new Date()) => {
   return unshiftFromAppParts(shifted.getUTCFullYear(), shifted.getUTCMonth(), 1);
 };
 
+export const getAppWeekday = (date = new Date()) => shiftToAppTime(date).getUTCDay();
+
+export const setAppClock = (date = new Date(), hour = 0, minute = 0) => {
+  const shifted = shiftToAppTime(date);
+  return unshiftFromAppParts(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate(), hour, minute);
+};
+
 export const formatInAppTimeZone = (value, options = {}) =>
   new Intl.DateTimeFormat("uz-UZ", {
     timeZone: env.appTimeZone,
