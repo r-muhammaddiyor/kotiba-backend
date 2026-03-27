@@ -91,7 +91,13 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
   }
 
   const assistantContext = await getAssistantContext(userId);
-  const assistantPayload = hydrateTaskTiming(await getKotibaReply(normalizedText, assistantContext), normalizedText);
+  const assistantPayload = hydrateTaskTiming(
+    await getKotibaReply(normalizedText, {
+      ...assistantContext,
+      inputMode: interactionType
+    }),
+    normalizedText
+  );
   const [createdTasks, createdExpenses, createdNotes] = await Promise.all([
     createAssistantTasks({
       userId,

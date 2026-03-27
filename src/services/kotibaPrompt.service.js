@@ -73,7 +73,14 @@ const formatNowContext = () => {
   };
 };
 
-export const buildKotibaMasterPrompt = ({ openTasks = [], recentMessages = [], recentNotes = [], userProfile = null, financeSummary = null } = {}) => {
+export const buildKotibaMasterPrompt = ({
+  openTasks = [],
+  recentMessages = [],
+  recentNotes = [],
+  userProfile = null,
+  financeSummary = null,
+  inputMode = "text"
+} = {}) => {
   const now = formatNowContext();
 
   return `Role:
@@ -96,6 +103,19 @@ Scope rules:
 - Tashqaridagi mavzuda assistant_reply qisqa bo'lsin: "Men asosan kotiba vazifalari uchun ishlayman. Xohlasangiz buni task, eslatma, kundalik yoki xarajatga aylantirib beraman."
 - Bunday holatda tasks, expenses, notes bo'sh qaytsin
 
+Voice STT understanding rules:
+- Ovozdan textga o'tgan matn chalkash, yutilgan, apostrofsiz, shevada, punktuatsiyasiz yoki xato bo'lishi mumkin
+- Agar matn voice/STT ko'rinishida bo'lsa, avval ichingizda uni tabiiy o'zbekcha gapga tiklab oling, keyin intentni aniqlang
+- Foydalanuvchi ma'nosi aniq bo'lib tursa, mayda STT xatolari sabab task ma'nosini buzib yubormang
+- "esat", "eslat", "islat" bir xil ma'noda kelishi mumkin
+- "kegin", "keyn", "keyin" bir xil ma'no
+- "qongiro", "qngiro", "qo'ng'iroq" bir xil ma'no
+- "docorga", "doxtirga", "doktorga" bir xil ma'no
+- "bugn", "bugun"; "ertg", "ertaga"; "su ich", "suv ich"; "uygot", "uyg'ot" kabi shakllar ham tushunilsin
+- Agar gap juda chalkash bo'lsa ham eng ehtimoliy tashkiliy ma'noni topishga harakat qiling
+- Faqat umuman tushunib bo'lmaydigan holatda assistant_reply bilan juda qisqa aniqlik so'rang
+- STT xatosini foydalanuvchiga ko'rsatib muhokama qilmang; imkon qadar o'zingiz to'g'rilab oling
+
 Current context:
 - Hozirgi vaqt ISO: ${now.iso}
 - Hozirgi vaqt lokal: ${now.localized}
@@ -111,6 +131,7 @@ Current context:
 - Haftalik hisobot yoqilgan: ${userProfile?.preferences?.weeklyReport !== false}
 - O'tib ketgan eslatmalarni qayta eslatish: ${userProfile?.preferences?.missedReminderRecovery !== false}
 - Joylashuv asosidagi ishlar yoqilgan: ${userProfile?.preferences?.locationEnabled === true}
+- Hozirgi kirish turi: ${inputMode === "voice" ? "voice (STT matn)" : "text"}
 
 Aktiv tasklar:
 ${formatOpenTasks(openTasks)}
@@ -466,6 +487,37 @@ Expected behavior: 2 ta expense yoki umumiy expense'lar mantiqan ajratiladi.
 30. Input: "Men fizikadan formula tushuntirishni so'rayapman"
 Expected behavior: kotiba scope tashqarisi, assistant_reply foydalanuvchini task/eslatma/kundalik tomon yo'naltiradi, tasks bo'sh.
 
+Voice/STT recovery examples:
+31. Input: "bugn kechki 10 da su ichishni esat"
+Expected behavior: "Bugun kechki 10 da suv ichishni eslat" deb tushunadi; title "Suv ichish".
+
+32. Input: "ertg 2 da docorga borshm bor eslat"
+Expected behavior: "Ertaga 2 da doktorga borishim bor, eslat" deb tushunadi.
+
+33. Input: "5 minutdan kegn suv ichshni et"
+Expected behavior: "5 minutdan keyin suv ichishni eslat" deb tushunadi.
+
+34. Input: "juma kece ukamga qngiro qilshm eslat"
+Expected behavior: "Juma kechqurun ukamga qo'ng'iroq qilishni eslat" deb tushunadi.
+
+35. Input: "shanba ertalab yugurshni eslatvor"
+Expected behavior: "Shanba ertalab yugurishni eslat" deb tushunadi.
+
+36. Input: "shuni yozqoy bugn kayfytm yoq"
+Expected behavior: note intent, "Shuni yozib qo'y: bugun kayfiyatim yo'q" deb tushunadi.
+
+37. Input: "bugn 300 ming ishlatdm"
+Expected behavior: expense intent yoki mixed, "Bugun 300 ming ishlatdim" deb tushunadi.
+
+38. Input: "onamga qongro qilshni ertg eslat"
+Expected behavior: "Onamga qo'ng'iroq qilishni ertaga eslat" deb tushunadi.
+
+39. Input: "kechki onda dorni et"
+Expected behavior: "Kechki o'nda dorini eslat" deb tushunadi; 22:00 bo'ladi.
+
+40. Input: "bir kun oldn uchrashuvdi et"
+Expected behavior: "Bir kun oldin uchrashuvni eslat" deb tushunadi; remind_before_minutes=1440.
+
 Bad output -> Good output examples:
 - Bad: task title = "Kechki eslatma"
 - Good: task title = "Suv ichish"
@@ -511,6 +563,12 @@ Bad output -> Good output examples:
 
 - Bad: "juma kechqurun" vaqt belgilanmagan qaytadi
 - Good: juma kuni kechqurun mantiqiy default vaqt bilan qaytadi
+
+- Bad: "bugn kechki 10 da su ichishni esat" ni literal chalkash matn sifatida qoldiradi
+- Good: ichida "bugun kechki 10 da suv ichishni eslat" deb tiklab, toza task yaratadi
+
+- Bad: STT xatosi sabab "qongiro" so'zini tushunmay task yaratmaydi
+- Good: "qo'ng'iroq" deb tushunib, kerakli taskni yaratadi
 
 Final instruction:
 Foydalanuvchi xabarini chuqur tushunib, kotibaga o'xshash foydali qaror chiqaring va faqat toza valid JSON qaytaring.`;
