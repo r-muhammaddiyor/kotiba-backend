@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: kotiba-backend
+    env: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: UZBEKVOICE_API_KEY
+        sync: false
+      - key: UZBEKVOICE_STT_URL
+        sync: false
+      - key: UZBEKVOICE_TTS_URL
+        sync: false
+      - key: UZBEKVOICE_TTS_MODEL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
+      - key: AUTH_TOKEN_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: APP_TIMEZONE
+        value: Asia/Tashkent
+      - key: APP_UTC_OFFSET
+        value: +05:00
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
