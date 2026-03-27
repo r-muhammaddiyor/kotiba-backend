@@ -2,7 +2,7 @@ import { generateAssistantReply } from "../services/assistant.service.js";
 
 export const handleAssistantText = async (req, res, next) => {
   try {
-    const { text, includeAudio = true } = req.body ?? {};
+    const { text, includeAudio = false } = req.body ?? {};
 
     const assistantResponse = await generateAssistantReply({
       userId: req.auth.userId,

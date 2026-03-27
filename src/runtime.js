@@ -10,7 +10,7 @@ let workersReady = false;
 export const ensureRuntimeReady = async () => {
   await connectDb(env.mongoUri);
 
-  if (!workersReady) {
+  if (!env.isServerless && !workersReady) {
     registerReminderWorker();
     startJobQueue();
     workersReady = true;

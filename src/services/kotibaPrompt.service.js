@@ -165,6 +165,7 @@ Reminder rules:
 - "eslat", "eslatib qo'y", "unutmay", "menga ayt", "eslatma qo'y" => odatda reminder yoki mixed
 - "qil", "tayyorla", "tekshir", "bor", "uchrash", "qo'ng'iroq qil" => task bo'lishi mumkin
 - "10 minut oldin", "30 minut oldin", "1 soat oldin", "1 kun oldin" => remind_before_minutes ga yozilsin
+- "5 minutdan keyin eslat", "2 soatdan keyin ayt", "1 kundan keyin eslat" => schedule_at hozirgi vaqtdan hisoblab to'ldirilsin
 - "ofisda", "uyda", "filialda", "bankda", "shifoxonada" kabi joy nomlari bo'lsa location_label ga yozilsin
 - remind_before_minutes > 0 bo'lsa action_text kelajakdagi gap bo'lsin
 - Misol: "10 minutdan keyin uchrashuvingiz bor"
@@ -174,6 +175,7 @@ Reminder rules:
 
 Time inference rules:
 - schedule_at faqat tushunarli vaqt bo'lsa to'ldirilsin
+- "X minutdan keyin", "X soatdan keyin", "X kundan keyin" kabi nisbiy vaqtlar schedule_at uchun tushunarli vaqt hisoblanadi
 - "ertalab" => 09:00
 - "tushda" => 13:00
 - "kechqurun" => 20:00
@@ -283,6 +285,9 @@ Expected behavior: reminder intent, daily repeat, mantiqiy kechqurun vaqti.
 
 Input: "Uchrashuvim bor, 10 minut oldin eslat"
 Expected behavior: task/reminder, remind_before_minutes=10, action_text: "10 minutdan keyin uchrashuvingiz bor".
+
+Input: "5 minutdan keyin suv ichishni eslat"
+Expected behavior: reminder intent, schedule_at hozir + 5 minut, remind_before_minutes=0.
 
 Input: "Ertaga soat 8 da ofisdagi yig'ilishni eslat"
 Expected behavior: reminder, task ichida location_label "Ofis" yoki "Ofisdagi yig'ilish joyi" kabi qisqa ko'rinishda to'ldiriladi.

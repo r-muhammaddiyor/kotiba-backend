@@ -57,6 +57,30 @@ const buildExpenseAdvice = ({ currency, dayTotal, monthlyIncome, monthlyLimit, m
   return "Xarajatlaringiz hozircha me'yorida. Shu tartibda davom etsangiz, oy oxirigacha bosim sezilmaydi.";
 };
 
+const buildExpenseSnapshot = ({ user, dayTotal, weekTotal, monthTotal }) => {
+  const monthlyIncome = user.finance?.monthlyIncome || 0;
+  const monthlyLimit = user.finance?.monthlyLimit || (monthlyIncome ? Math.round(monthlyIncome * 0.7) : 0);
+  const currency = user.finance?.currency || "UZS";
+  const usageRatio = monthlyLimit > 0 ? monthTotal / monthlyLimit : 0;
+
+  return {
+    currency,
+    monthlyIncome,
+    monthlyLimit,
+    dailyTotal: dayTotal,
+    weeklyTotal: weekTotal,
+    monthlyTotal: monthTotal,
+    advice: buildExpenseAdvice({
+      currency,
+      dayTotal,
+      monthlyIncome,
+      monthlyLimit,
+      monthTotal,
+      usageRatio
+    })
+  };
+};
+
 const normalizeExpenseInput = (payload, options = {}) => {
   const title = String(payload?.title ?? payload?.name ?? "Xarajat").trim();
   const amount = Number(payload?.amount);
@@ -160,6 +184,41 @@ export const deleteExpense = async (userId, expenseId) => {
 export const listExpenses = async (userId) =>
   Expense.find({ user: userId }).sort({ spentAt: -1, createdAt: -1 }).limit(100);
 
+export const getExpenseSnapshot = async (userId) => {
+  const user = await User.findById(userId).lean();
+  if (!user) {
+    throw new HttpError(404, "Foydalanuvchi topilmadi");
+  }
+
+  const now = new Date();
+  const [totals] = await Expense.aggregate([
+    { $match: { user: user._id } },
+    {
+      $facet: {
+        daily: [
+          { $match: { spentAt: { $gte: startOfToday(now) } } },
+          { $group: { _id: null, total: { $sum: "$amount" } } }
+        ],
+        weekly: [
+          { $match: { spentAt: { $gte: startOfWeek(now) } } },
+          { $group: { _id: null, total: { $sum: "$amount" } } }
+        ],
+        monthly: [
+          { $match: { spentAt: { $gte: startOfMonth(now) } } },
+          { $group: { _id: null, total: { $sum: "$amount" } } }
+        ]
+      }
+    }
+  ]);
+
+  return buildExpenseSnapshot({
+    user,
+    dayTotal: totals?.daily?.[0]?.total || 0,
+    weekTotal: totals?.weekly?.[0]?.total || 0,
+    monthTotal: totals?.monthly?.[0]?.total || 0
+  });
+};
+
 export const getExpenseSummary = async (userId) => {
   const user = await User.findById(userId).lean();
   if (!user) {
@@ -191,19 +250,14 @@ export const getExpenseSummary = async (userId) => {
   const dayTotal = daily[0]?.total || 0;
   const weekTotal = weekly[0]?.total || 0;
   const monthTotal = monthly[0]?.total || 0;
-  const monthlyIncome = user.finance?.monthlyIncome || 0;
-  const monthlyLimit = user.finance?.monthlyLimit || (monthlyIncome ? Math.round(monthlyIncome * 0.7) : 0);
-  const currency = user.finance?.currency || "UZS";
-  const usageRatio = monthlyLimit > 0 ? monthTotal / monthlyLimit : 0;
-
-  const advice = buildExpenseAdvice({
-    currency,
+  const snapshot = buildExpenseSnapshot({
+    user,
     dayTotal,
-    monthlyIncome,
-    monthlyLimit,
-    monthTotal,
-    usageRatio
+    weekTotal,
+    monthTotal
   });
+  const { monthlyIncome, monthlyLimit, currency, advice } = snapshot;
+  const usageRatio = monthlyLimit > 0 ? monthTotal / monthlyLimit : 0;
   const categoryBreakdown = monthlyByCategory.map((entry) => ({
     category: entry._id || "general",
     label: categoryLabels[entry._id] || categoryLabels.general,
@@ -227,12 +281,7 @@ export const getExpenseSummary = async (userId) => {
   };
 
   return {
-    currency,
-    monthlyIncome,
-    monthlyLimit,
-    dailyTotal: dayTotal,
-    weeklyTotal: weekTotal,
-    monthlyTotal: monthTotal,
+    ...snapshot,
     advice,
     analytics,
     formatted: {

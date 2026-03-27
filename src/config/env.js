@@ -7,7 +7,6 @@ const required = [
   "UZBEKVOICE_API_KEY",
   "UZBEKVOICE_STT_URL",
   "UZBEKVOICE_TTS_URL",
-  "GEMINI_API_KEY",
   "AUTH_TOKEN_SECRET"
 ];
 
@@ -21,12 +20,29 @@ for (const key of required) {
   }
 }
 
+const aiProvider = process.env.AI_PROVIDER ?? (process.env.OPENAI_API_KEY ? "openai" : "gemini");
+
+if (aiProvider === "openai" && !process.env.OPENAI_API_KEY) {
+  throw new Error("Missing required environment variable: OPENAI_API_KEY");
+}
+
+if (aiProvider === "gemini" && !process.env.GEMINI_API_KEY) {
+  throw new Error("Missing required environment variable: GEMINI_API_KEY");
+}
+
 if (hasVapidPublicKey !== hasVapidPrivateKey) {
   throw new Error("VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be provided together");
 }
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
+  aiProvider,
+  isVercel: process.env.VERCEL === "1",
+  isServerless:
+    process.env.VERCEL === "1" ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.LAMBDA_TASK_ROOT ||
+    false,
   port: Number(process.env.PORT ?? 5000),
   mongoUri: process.env.MONGODB_URI,
   clientUrl: process.env.CLIENT_URL ?? "http://localhost:5173",
@@ -38,6 +54,8 @@ export const env = {
   uzbekVoiceTtsModel: process.env.UZBEKVOICE_TTS_MODEL ?? "lola",
   geminiApiKey: process.env.GEMINI_API_KEY,
   geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+  openAiApiKey: process.env.OPENAI_API_KEY ?? "",
+  openAiModel: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
   authTokenSecret: process.env.AUTH_TOKEN_SECRET,
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,

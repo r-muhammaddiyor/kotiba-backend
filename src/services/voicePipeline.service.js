@@ -6,7 +6,7 @@ export const processVoicePipeline = async ({ userId, buffer, filename, mimeType 
   return generateAssistantReply({
     userId,
     userText,
-    includeAudio: true,
+    includeAudio: false,
     interactionType: "voice"
   });
 };

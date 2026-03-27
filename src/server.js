@@ -9,7 +9,9 @@ const bootstrap = async () => {
     console.log(`Server running at http://localhost:${env.port}`);
   });
 
-  startReminderScheduler();
+  if (!env.isServerless) {
+    startReminderScheduler();
+  }
 };
 
 bootstrap().catch((error) => {

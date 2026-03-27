@@ -12,6 +12,21 @@ const extractGeminiText = (payload) =>
     .join("")
     .trim() ?? "";
 
+const extractOpenAiText = (payload) => {
+  if (typeof payload?.output_text === "string" && payload.output_text.trim()) {
+    return payload.output_text.trim();
+  }
+
+  return (
+    payload?.output
+      ?.flatMap((item) => item?.content ?? [])
+      ?.filter((item) => item?.type === "output_text" && item?.text)
+      ?.map((item) => item.text)
+      ?.join("")
+      .trim() ?? ""
+  );
+};
+
 const extractJsonObject = (rawText) => {
   const normalized = rawText.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
 
@@ -97,64 +112,108 @@ const normalizeAssistantPayload = (payload) => {
 };
 
 export const getKotibaReply = async (userText, context = {}) => {
+  const systemPrompt = buildKotibaMasterPrompt(context);
+
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiModel}:generateContent?key=${env.geminiApiKey}`,
-      {
+    let rawText = "";
+
+    if (env.aiProvider === "openai") {
+      const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.openAiApiKey}`
         },
         body: JSON.stringify({
-          systemInstruction: {
-            parts: [
-              {
-                text: buildKotibaMasterPrompt(context)
-              }
-            ]
+          model: env.openAiModel,
+          instructions: systemPrompt,
+          input: `Foydalanuvchi xabari uchun faqat valid JSON qaytaring. Xabar: ${userText}`,
+          temperature: 0.1,
+          text: {
+            format: {
+              type: "json_object"
+            }
+          }
+        })
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = payload?.error?.message || "OpenAI servisida xatolik";
+
+        if (response.status === 429) {
+          throw new HttpError(503, "OpenAI limiti tugagan yoki billing yoqilmagan.", payload);
+        }
+
+        if (response.status === 401) {
+          throw new HttpError(503, "OpenAI API key noto'g'ri yoki bekor qilingan.", payload);
+        }
+
+        throw new HttpError(502, errorMessage, payload);
+      }
+
+      rawText = extractOpenAiText(payload);
+    } else {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiModel}:generateContent?key=${env.geminiApiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
           },
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.1,
-            topP: 0.9
-          },
-          contents: [
-            {
-              role: "user",
+          body: JSON.stringify({
+            systemInstruction: {
               parts: [
                 {
-                  text: `Foydalanuvchi xabari: ${userText}`
+                  text: systemPrompt
                 }
               ]
-            }
-          ]
-        })
+            },
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.1,
+              topP: 0.9
+            },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: `Foydalanuvchi xabari: ${userText}`
+                  }
+                ]
+              }
+            ]
+          })
+        }
+      );
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = payload?.error?.message || "Gemini servisida xatolik";
+
+        if (response.status === 429) {
+          throw new HttpError(
+            503,
+            "Gemini limiti tugagan yoki billing yoqilmagan. Yangi API key yoki billing kerak.",
+            payload
+          );
+        }
+
+        if (response.status === 400 && payload?.error?.status === "INVALID_ARGUMENT") {
+          throw new HttpError(503, "Gemini API key noto'g'ri yoki model mavjud emas.", payload);
+        }
+
+        throw new HttpError(502, errorMessage, payload);
       }
-    );
 
-    const payload = await response.json();
-
-    if (!response.ok) {
-      const errorMessage = payload?.error?.message || "Gemini servisida xatolik";
-
-      if (response.status === 429) {
-        throw new HttpError(
-          503,
-          "Gemini limiti tugagan yoki billing yoqilmagan. Yangi API key yoki billing kerak.",
-          payload
-        );
-      }
-
-      if (response.status === 400 && payload?.error?.status === "INVALID_ARGUMENT") {
-        throw new HttpError(503, "Gemini API key noto'g'ri yoki model mavjud emas.", payload);
-      }
-
-      throw new HttpError(502, errorMessage, payload);
+      rawText = extractGeminiText(payload);
     }
 
-    const rawText = extractGeminiText(payload);
     if (!rawText) {
-      throw new HttpError(502, "Gemini bo'sh javob qaytardi");
+      throw new HttpError(502, env.aiProvider === "openai" ? "OpenAI bo'sh javob qaytardi" : "Gemini bo'sh javob qaytardi");
     }
 
     return normalizeAssistantPayload(extractJsonObject(rawText));
@@ -163,8 +222,9 @@ export const getKotibaReply = async (userText, context = {}) => {
       throw error;
     }
 
-    throw new HttpError(502, "Gemini servisida xatolik", {
+    throw new HttpError(502, env.aiProvider === "openai" ? "OpenAI servisida xatolik" : "Gemini servisida xatolik", {
       details: error?.message
     });
   }
 };
+

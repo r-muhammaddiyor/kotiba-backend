@@ -1,24 +1,33 @@
 import mongoose from "mongoose";
 
-let connectionPromise = null;
+const globalConnection = globalThis.__kotibaMongo ?? {
+  promise: null,
+  connection: null
+};
+
+globalThis.__kotibaMongo = globalConnection;
 
 export const connectDb = async (mongoUri) => {
-  if (mongoose.connection.readyState === 1) {
-    return mongoose.connection;
+  if (globalConnection.connection && mongoose.connection.readyState === 1) {
+    return globalConnection.connection;
   }
 
-  if (connectionPromise) {
-    return connectionPromise;
+  if (globalConnection.promise) {
+    return globalConnection.promise;
   }
 
-  connectionPromise = mongoose
+  globalConnection.promise = mongoose
     .connect(mongoUri, {
       autoIndex: true
     })
+    .then((mongooseInstance) => {
+      globalConnection.connection = mongooseInstance.connection;
+      return globalConnection.connection;
+    })
     .catch((error) => {
-      connectionPromise = null;
+      globalConnection.promise = null;
       throw error;
     });
 
-  return connectionPromise;
+  return globalConnection.promise;
 };

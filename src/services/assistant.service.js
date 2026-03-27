@@ -8,16 +8,78 @@ import { buildSmartSuggestions } from "./suggestion.service.js";
 import { createAssistantTasks } from "./task.service.js";
 import { synthesizeUzbekSpeech } from "./tts.service.js";
 import { createConversationMessages } from "./conversation.service.js";
-import { createAssistantExpenses, getExpenseSummary } from "./expense.service.js";
+import { createAssistantExpenses, getExpenseSnapshot } from "./expense.service.js";
 import { createAssistantNotes } from "./note.service.js";
+
+const buildIsoDateAfterMinutes = (minutesFromNow) => new Date(Date.now() + minutesFromNow * 60 * 1000).toISOString();
+
+const inferRelativeMinutes = (text) => {
+  const normalized = String(text || "").toLowerCase().trim();
+
+  const minuteMatch = normalized.match(/(\d+)\s*(daqiqa|minut|min)\s*(dan\s*)?keyin/);
+  if (minuteMatch) {
+    return Number(minuteMatch[1]);
+  }
+
+  const hourMatch = normalized.match(/(\d+)\s*soat\s*(dan\s*)?keyin/);
+  if (hourMatch) {
+    return Number(hourMatch[1]) * 60;
+  }
+
+  const dayMatch = normalized.match(/(\d+)\s*kun\s*(dan\s*)?keyin/);
+  if (dayMatch) {
+    return Number(dayMatch[1]) * 24 * 60;
+  }
+
+  return null;
+};
+
+const hydrateRelativeTasks = (payload, userText) => {
+  const relativeMinutes = inferRelativeMinutes(userText);
+
+  if (!relativeMinutes || !Array.isArray(payload?.tasks) || !payload.tasks.length) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    tasks: payload.tasks.map((task) => {
+      if (task.schedule_at) {
+        return task;
+      }
+
+      return {
+        ...task,
+        schedule_at: buildIsoDateAfterMinutes(relativeMinutes),
+        remind_before_minutes: Number.isFinite(Number(task.remind_before_minutes))
+          ? Math.max(0, Math.floor(Number(task.remind_before_minutes)))
+          : 0
+      };
+    })
+  };
+};
 
 const getAssistantContext = async (userId) => {
   const [user, openTasks, recentMessages, recentNotes, financeSummary] = await Promise.all([
-    User.findById(userId).lean(),
-    Task.find({ user: userId, isCompleted: false }).sort({ createdAt: -1 }).limit(12).lean(),
-    ConversationMessage.find({ user: userId }).sort({ createdAt: -1 }).limit(8).lean(),
-    Note.find({ user: userId }).sort({ createdAt: -1 }).limit(6).lean(),
-    getExpenseSummary(userId)
+    User.findById(userId)
+      .select("name locale timeZone preferences finance")
+      .lean(),
+    Task.find({ user: userId, isCompleted: false })
+      .select("title note description scheduleAt remindBeforeMinutes repeat locationLabel")
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .lean(),
+    ConversationMessage.find({ user: userId })
+      .select("role text interactionType")
+      .sort({ createdAt: -1 })
+      .limit(4)
+      .lean(),
+    Note.find({ user: userId })
+      .select("title body")
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .lean(),
+    getExpenseSnapshot(userId)
   ]);
 
   return {
@@ -37,14 +99,16 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
   }
 
   const assistantContext = await getAssistantContext(userId);
-  const assistantPayload = await getKotibaReply(normalizedText, assistantContext);
-  const createdTasks = await createAssistantTasks({
-    userId,
-    intent: assistantPayload.intent,
-    tasks: assistantPayload.tasks
-  });
-  const createdExpenses = await createAssistantExpenses(userId, assistantPayload.expenses);
-  const createdNotes = await createAssistantNotes(userId, assistantPayload.notes);
+  const assistantPayload = hydrateRelativeTasks(await getKotibaReply(normalizedText, assistantContext), normalizedText);
+  const [createdTasks, createdExpenses, createdNotes] = await Promise.all([
+    createAssistantTasks({
+      userId,
+      intent: assistantPayload.intent,
+      tasks: assistantPayload.tasks
+    }),
+    createAssistantExpenses(userId, assistantPayload.expenses),
+    createAssistantNotes(userId, assistantPayload.notes)
+  ]);
 
   if (assistantPayload.finance_profile) {
     const monthlyIncome = Number(assistantPayload.finance_profile.monthly_income || 0);
