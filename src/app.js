@@ -18,6 +18,8 @@ const isLocalNetworkOrigin = (origin) =>
   /^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/i.test(origin) ||
   /^https?:\/\/172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$/i.test(origin);
 
+const isTrustedHostedOrigin = (origin) => /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
+
 export const createApp = () => {
   const app = express();
 
@@ -29,7 +31,11 @@ export const createApp = () => {
           return;
         }
 
-        if (allowedOrigins.has(origin) || (env.nodeEnv !== "production" && isLocalNetworkOrigin(origin))) {
+        if (
+          allowedOrigins.has(origin) ||
+          isTrustedHostedOrigin(origin) ||
+          (env.nodeEnv !== "production" && isLocalNetworkOrigin(origin))
+        ) {
           callback(null, true);
           return;
         }
