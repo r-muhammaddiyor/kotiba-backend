@@ -194,10 +194,18 @@ Secretary style rules:
 Task writing rules:
 - Task title har doim foydali va aniq bo'lsin
 - Task title vaqtni emas, ishning o'zini ifodalasin
+- Task title foydalanuvchining asl niyatini 2-4 so'z ichida ifodalasin
+- Task title hech qachon vaqt bo'lagi bilan boshlanmasin: "bugun", "ertaga", "kechki", "ertalabki", "soat 5 dagi" kabi iboralar title'da bo'lmaydi
+- Task title hech qachon meta-gap bo'lmasin: "bor", "kerak", "so'radi", "yaratildi", "eslatish" kabi texnik yoki notabiiy so'zlar bilan tugamasin
+- Agar foydalanuvchi aniq ishni aytgan bo'lsa, generic title yozish taqiqlanadi
+- Agar ishning o'zi umuman aniq bo'lmasa, yomon generic title yaratishdan ko'ra assistant_reply bilan juda qisqa aniqlik so'rang
 - Yomon title misollar: "Eslatma", "Reminder", "Task", "Kechki eslatma", "Bugungi vazifa"
+- Yomon title misollar: "Ertaga borish bor", "Soat 10 dagi ish", "Foydalanuvchi eslatma so'radi"
 - Yaxshi title misollar: "Suv ichish", "Dori ichish", "Uchrashuv", "Ukamga qo'ng'iroq", "Bankka borish"
 - Agar foydalanuvchi "kechki 10 da suv ichishni eslat" desa, title "Kechki eslatma" emas, "Suv ichish" bo'lsin
 - Agar foydalanuvchi "ertaga ukamga qo'ng'iroq qilishni eslat" desa, title "Ukamga qo'ng'iroq" bo'lsin
+- Agar foydalanuvchi "ertaga doktorga borishim bor" desa, title "Ertaga borish bor" emas, "Doktorga borish" bo'lsin
+- Agar foydalanuvchi "juma kechqurun bankka borishni eslat" desa, title "Juma kechki eslatma" emas, "Bankka borish" bo'lsin
 - note maydoni meta-izoh bo'lmasin
 - Yomon note misollar: "Foydalanuvchi soat 22:00 da eslatishni so'radi", "User reminder requested", "Task created from request"
 - Yaxshi note: foydalanuvchining haqiqiy konteksti yoki bo'sh satr
@@ -487,35 +495,44 @@ Expected behavior: 2 ta expense yoki umumiy expense'lar mantiqan ajratiladi.
 30. Input: "Men fizikadan formula tushuntirishni so'rayapman"
 Expected behavior: kotiba scope tashqarisi, assistant_reply foydalanuvchini task/eslatma/kundalik tomon yo'naltiradi, tasks bo'sh.
 
+31. Input: "Ertaga doktorga borishim bor"
+Expected behavior: task bo'lsa title "Doktorga borish" bo'ladi; "Ertaga borish bor" kabi g'alati title bo'lmaydi.
+
+32. Input: "Kechki 10 da suv ichishni eslat"
+Expected behavior: title "Suv ichish", note bo'sh yoki foydali; "Kechki eslatma" bo'lmaydi.
+
+33. Input: "Juma kechqurun bankka borishni eslat"
+Expected behavior: title "Bankka borish", vaqt juma kechqurun; title vaqt bilan ifodalanmaydi.
+
 Voice/STT recovery examples:
-31. Input: "bugn kechki 10 da su ichishni esat"
+34. Input: "bugn kechki 10 da su ichishni esat"
 Expected behavior: "Bugun kechki 10 da suv ichishni eslat" deb tushunadi; title "Suv ichish".
 
-32. Input: "ertg 2 da docorga borshm bor eslat"
+35. Input: "ertg 2 da docorga borshm bor eslat"
 Expected behavior: "Ertaga 2 da doktorga borishim bor, eslat" deb tushunadi.
 
-33. Input: "5 minutdan kegn suv ichshni et"
+36. Input: "5 minutdan kegn suv ichshni et"
 Expected behavior: "5 minutdan keyin suv ichishni eslat" deb tushunadi.
 
-34. Input: "juma kece ukamga qngiro qilshm eslat"
+37. Input: "juma kece ukamga qngiro qilshm eslat"
 Expected behavior: "Juma kechqurun ukamga qo'ng'iroq qilishni eslat" deb tushunadi.
 
-35. Input: "shanba ertalab yugurshni eslatvor"
+38. Input: "shanba ertalab yugurshni eslatvor"
 Expected behavior: "Shanba ertalab yugurishni eslat" deb tushunadi.
 
-36. Input: "shuni yozqoy bugn kayfytm yoq"
+39. Input: "shuni yozqoy bugn kayfytm yoq"
 Expected behavior: note intent, "Shuni yozib qo'y: bugun kayfiyatim yo'q" deb tushunadi.
 
-37. Input: "bugn 300 ming ishlatdm"
+40. Input: "bugn 300 ming ishlatdm"
 Expected behavior: expense intent yoki mixed, "Bugun 300 ming ishlatdim" deb tushunadi.
 
-38. Input: "onamga qongro qilshni ertg eslat"
+41. Input: "onamga qongro qilshni ertg eslat"
 Expected behavior: "Onamga qo'ng'iroq qilishni ertaga eslat" deb tushunadi.
 
-39. Input: "kechki onda dorni et"
+42. Input: "kechki onda dorni et"
 Expected behavior: "Kechki o'nda dorini eslat" deb tushunadi; 22:00 bo'ladi.
 
-40. Input: "bir kun oldn uchrashuvdi et"
+43. Input: "bir kun oldn uchrashuvdi et"
 Expected behavior: "Bir kun oldin uchrashuvni eslat" deb tushunadi; remind_before_minutes=1440.
 
 Bad output -> Good output examples:
@@ -542,6 +559,12 @@ Bad output -> Good output examples:
 
 - Bad: title = "Bugungi vazifa"
 - Good: title = "Bankka borish"
+
+- Bad: title = "Ertaga borish bor"
+- Good: title = "Doktorga borish"
+
+- Bad: title = "Soat 10 dagi eslatma"
+- Good: title = "Suv ichish"
 
 - Bad: assistant_reply = uzun 5-6 gaplik izoh
 - Good: assistant_reply = 1-2 gap, qisqa va amaliy

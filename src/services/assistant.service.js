@@ -5,7 +5,7 @@ import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
 import { getKotibaReply } from "./gemini.service.js";
 import { buildSmartSuggestions } from "./suggestion.service.js";
-import { buildDefaultActionText, createAssistantTasks } from "./task.service.js";
+import { buildDefaultActionText, createAssistantTasks, normalizeAssistantTasks } from "./task.service.js";
 import { synthesizeUzbekSpeech } from "./tts.service.js";
 import { createConversationMessages } from "./conversation.service.js";
 import { createAssistantExpenses, getExpenseSnapshot } from "./expense.service.js";
@@ -91,18 +91,23 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
   }
 
   const assistantContext = await getAssistantContext(userId);
+  const modelPayload = await getKotibaReply(normalizedText, {
+    ...assistantContext,
+    inputMode: interactionType
+  });
   const assistantPayload = hydrateTaskTiming(
-    await getKotibaReply(normalizedText, {
-      ...assistantContext,
-      inputMode: interactionType
-    }),
+    {
+      ...modelPayload,
+      tasks: normalizeAssistantTasks(modelPayload.tasks, normalizedText)
+    },
     normalizedText
   );
   const [createdTasks, createdExpenses, createdNotes] = await Promise.all([
     createAssistantTasks({
       userId,
       intent: assistantPayload.intent,
-      tasks: assistantPayload.tasks
+      tasks: assistantPayload.tasks,
+      sourceText: normalizedText
     }),
     createAssistantExpenses(userId, assistantPayload.expenses),
     createAssistantNotes(userId, assistantPayload.notes)
