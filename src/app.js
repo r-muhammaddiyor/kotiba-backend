@@ -8,7 +8,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 const allowedOrigins = new Set(
   String(env.clientUrl || "")
     .split(",")
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean)
 );
 
