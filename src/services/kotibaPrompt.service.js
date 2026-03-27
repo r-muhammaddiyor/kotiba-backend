@@ -173,6 +173,10 @@ Reminder rules:
 - "ertalabki 10", "ertalab 10" => 10:00
 - "kechki 10", "kechqurun 10", "kechasi 10" => 22:00
 - "tushdagi 2", "kunduzi 2" => 14:00
+- "o'nda", "ikkida", "uchda", "to'rtda" kabi gaplar ham vaqt ifodasi bo'lishi mumkin
+- "uch yarimda" => 03:30 yoki kun qismiga qarab 15:30
+- "juma kechqurun" => juma kuni kechqurun default mantiqiy vaqtga qo'yilsin
+- "shanba ertalab" => shanba kuni ertalab default mantiqiy vaqtga qo'yilsin
 - remind_before_minutes > 0 bo'lsa action_text kelajakdagi gap bo'lsin
 - Misol: "10 minutdan keyin uchrashuvingiz bor"
 - Misol: "1 soatdan keyin yig'ilishingiz bor"
@@ -187,6 +191,10 @@ Time inference rules:
 - Agar foydalanuvchi "kechki 10" desa 22:00 deb o'ylang, 10:00 emas
 - Agar foydalanuvchi "ertalabki 10" desa 10:00 deb o'ylang, 22:00 emas
 - Agar foydalanuvchi "2 ga" desa faqat kontekstdagi kun qismi bo'lsa shunga moslang; bo'lmasa qo'pol taxmin qilmang
+- "o'nda", "ikkida", "uchda", "o'n birda" kabi word-form vaqtlarni ham tushuning
+- "uch yarimda" => 03:30, agar kechki/tushlik/kunduzi konteksti bo'lsa shunga moslab 15:30 deb o'ylash mumkin
+- Agar faqat "juma kechqurun" deyilsa, alohida soat bo'lmasa default 20:00 oling
+- Agar faqat "shanba ertalab" deyilsa, alohida soat bo'lmasa default 09:00 oling
 - "ertalab" => 09:00
 - "tushda" => 13:00
 - "kechqurun" => 20:00
@@ -195,6 +203,7 @@ Time inference rules:
 
 Dialect and colloquial rules:
 - Sheva va og'zaki shakllarni tushuning: "kegin", "keyn", "so'ng", "avval", "bitta", "ikkita" kabi shakllar standart ma'no bilan bir xil
+- "o'nda", "ikkida", "uch yarimda", "juma kechqurun", "shanba ertalab" kabi tabiiy og'zaki shakllar ham to'g'ri tushunilsin
 - Foydalanuvchi adabiy tilda gapirmasa ham ma'noni to'g'ri oling
 - Masalan "5 minutdan kegin eslat", "bir kun avval et", "kechki 10 ga qo'y" kabi gaplar ham to'g'ri schedule_at va remind_before_minutes ga aylansin
 
@@ -313,6 +322,18 @@ Expected behavior: schedule_at ertaga 22:00 bo'ladi, 10:00 emas.
 
 Input: "Ertaga ertalabki 10 ga uchrashuv qo'y"
 Expected behavior: schedule_at ertaga 10:00 bo'ladi.
+
+Input: "Juma kechqurun ukamga qo'ng'iroq qilishni eslat"
+Expected behavior: juma kuni kechqurun default 20:00 atrofida schedule_at bo'ladi.
+
+Input: "Shanba ertalab sportni eslat"
+Expected behavior: shanba kuni ertalab default 09:00 atrofida schedule_at bo'ladi.
+
+Input: "O'nda meni uyg'ot"
+Expected behavior: 10:00 vaqtiga task/reminder yaratiladi.
+
+Input: "Uch yarimda chiqishni eslat"
+Expected behavior: 03:30 yoki kontekstga qarab 15:30 tarzida mantiqiy vaqt chiqadi.
 
 Input: "Ertaga soat 2 dagi uchrashuvni bir kun oldin eslat"
 Expected behavior: schedule_at ertaga 14:00 yoki kontekstdagi aniq vaqt, remind_before_minutes=1440.
