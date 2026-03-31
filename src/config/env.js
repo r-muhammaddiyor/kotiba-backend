@@ -21,6 +21,10 @@ for (const key of required) {
 }
 
 const aiProvider = process.env.AI_PROVIDER ?? (process.env.OPENAI_API_KEY ? "openai" : "gemini");
+const googleClientIds = String(process.env.GOOGLE_CLIENT_IDS ?? process.env.GOOGLE_WEB_CLIENT_ID ?? "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
 
 if (aiProvider === "openai" && !process.env.OPENAI_API_KEY) {
   throw new Error("Missing required environment variable: OPENAI_API_KEY");
@@ -58,6 +62,7 @@ export const env = {
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   openAiModel: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
   authTokenSecret: process.env.AUTH_TOKEN_SECRET,
+  googleClientIds,
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
   vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:admin@example.com",

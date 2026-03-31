@@ -1,4 +1,10 @@
-import { getSafeUser, loginUser, registerUser, updateUserProfile } from "../services/auth.service.js";
+import {
+  getSafeUser,
+  loginUser,
+  loginWithGoogle,
+  registerUser,
+  updateUserProfile
+} from "../services/auth.service.js";
 
 export const register = async (req, res, next) => {
   try {
@@ -12,6 +18,15 @@ export const register = async (req, res, next) => {
 export const login = async (req, res, next) => {
   try {
     const result = await loginUser(req.body ?? {});
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const google = async (req, res, next) => {
+  try {
+    const result = await loginWithGoogle(req.body ?? {});
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);

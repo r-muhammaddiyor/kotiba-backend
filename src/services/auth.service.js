@@ -1,17 +1,72 @@
+import { OAuth2Client } from "google-auth-library";
+import { env } from "../config/env.js";
 import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { createAuthToken } from "../utils/token.js";
 
+const googleClient = new OAuth2Client();
+
 const sanitizeUser = (user) => ({
   id: String(user._id),
   name: user.name,
   email: user.email,
+  avatarUrl: user.avatarUrl || "",
+  authMethods: {
+    password: Boolean(user.passwordHash),
+    google: Boolean(user.googleId)
+  },
   locale: user.locale,
   timeZone: user.timeZone,
   preferences: user.preferences,
   finance: user.finance
 });
+
+const createSessionPayload = (user) => ({
+  token: createAuthToken({ userId: String(user._id) }),
+  user: sanitizeUser(user)
+});
+
+const normalizeGoogleProfile = async (payload) => {
+  const idToken = String(payload?.idToken || payload?.credential || "").trim();
+
+  if (!idToken) {
+    throw new HttpError(400, "Google token yuborilmadi");
+  }
+
+  if (env.googleClientIds.length === 0) {
+    throw new HttpError(503, "Google login hali sozlanmagan");
+  }
+
+  let ticket;
+
+  try {
+    ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: env.googleClientIds
+    });
+  } catch (error) {
+    throw new HttpError(401, "Google token tasdiqlanmadi");
+  }
+
+  const googleProfile = ticket.getPayload();
+  const googleId = String(googleProfile?.sub || "").trim();
+  const email = String(googleProfile?.email || "").trim().toLowerCase();
+  const name = String(googleProfile?.name || "").trim();
+  const avatarUrl = String(googleProfile?.picture || "").trim();
+  const emailVerified = googleProfile?.email_verified === true;
+
+  if (!googleId || !email || !emailVerified) {
+    throw new HttpError(401, "Google akkaunti tasdiqlanmadi");
+  }
+
+  return {
+    googleId,
+    email,
+    name: name || email.split("@")[0] || "Kotiba foydalanuvchisi",
+    avatarUrl
+  };
+};
 
 export const registerUser = async ({ name, email, password }) => {
   const normalizedName = String(name || "").trim();
@@ -32,6 +87,10 @@ export const registerUser = async ({ name, email, password }) => {
 
   const existingUser = await User.findOne({ email: normalizedEmail }).lean();
   if (existingUser) {
+    if (existingUser.googleId && !existingUser.passwordHash) {
+      throw new HttpError(409, "Bu email Google orqali ro'yxatdan o'tgan. Google bilan kiring");
+    }
+
     throw new HttpError(409, "Bu email bilan foydalanuvchi mavjud");
   }
 
@@ -41,10 +100,7 @@ export const registerUser = async ({ name, email, password }) => {
     passwordHash: await hashPassword(normalizedPassword)
   });
 
-  return {
-    token: createAuthToken({ userId: String(user._id) }),
-    user: sanitizeUser(user)
-  };
+  return createSessionPayload(user);
 };
 
 export const loginUser = async ({ email, password }) => {
@@ -56,15 +112,69 @@ export const loginUser = async ({ email, password }) => {
     throw new HttpError(401, "Email yoki parol noto'g'ri");
   }
 
+  if (!user.passwordHash) {
+    throw new HttpError(400, "Bu akkaunt uchun Google orqali kiring");
+  }
+
   const valid = await verifyPassword(normalizedPassword, user.passwordHash);
   if (!valid) {
     throw new HttpError(401, "Email yoki parol noto'g'ri");
   }
 
-  return {
-    token: createAuthToken({ userId: String(user._id) }),
-    user: sanitizeUser(user)
-  };
+  return createSessionPayload(user);
+};
+
+export const loginWithGoogle = async (payload) => {
+  const googleProfile = await normalizeGoogleProfile(payload);
+
+  const [userByGoogleId, userByEmail] = await Promise.all([
+    User.findOne({ googleId: googleProfile.googleId }),
+    User.findOne({ email: googleProfile.email })
+  ]);
+
+  if (
+    userByGoogleId &&
+    userByEmail &&
+    String(userByGoogleId._id) !== String(userByEmail._id)
+  ) {
+    throw new HttpError(409, "Google akkauntni ulab bo'lmadi. Yordam uchun murojaat qiling");
+  }
+
+  let user = userByGoogleId ?? userByEmail;
+
+  if (!user) {
+    user = await User.create({
+      name: googleProfile.name,
+      email: googleProfile.email,
+      googleId: googleProfile.googleId,
+      avatarUrl: googleProfile.avatarUrl
+    });
+
+    return createSessionPayload(user);
+  }
+
+  const updates = {};
+
+  if (!user.googleId) {
+    updates.googleId = googleProfile.googleId;
+  }
+
+  if (!user.avatarUrl && googleProfile.avatarUrl) {
+    updates.avatarUrl = googleProfile.avatarUrl;
+  }
+
+  if (!user.name && googleProfile.name) {
+    updates.name = googleProfile.name;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    user = await User.findByIdAndUpdate(user._id, updates, {
+      new: true,
+      runValidators: true
+    });
+  }
+
+  return createSessionPayload(user);
 };
 
 export const updateUserProfile = async (userId, payload) => {
