@@ -8,6 +8,12 @@ const formatCurrency = (amount, currency = "UZS") => {
   if (currency === "USD") {
     return `$${Number(amount || 0).toFixed(Number.isInteger(Number(amount || 0)) ? 0 : 2)}`;
   }
+  if (currency === "EUR") {
+    return `\u20AC${Number(amount || 0).toFixed(Number.isInteger(Number(amount || 0)) ? 0 : 2)}`;
+  }
+  if (currency === "RUB") {
+    return `\u20BD${Number(amount || 0).toFixed(Number.isInteger(Number(amount || 0)) ? 0 : 2)}`;
+  }
 
   return new Intl.NumberFormat("uz-UZ", {
     style: "currency",
@@ -18,6 +24,8 @@ const formatCurrency = (amount, currency = "UZS") => {
 
 const amountUzsExpression = { $ifNull: ["$amountUzs", "$amount"] };
 const dollarPattern = /\b(usd|dollar|dollor|dolar)\b|\$/iu;
+const euroPattern = /\b(eur|euro|evro|yevro)\b|\u20AC/iu;
+const rublePattern = /\b(rub|rubl|ruble|rubli|rublga)\b|\u20BD/iu;
 const uzsPattern = /\b(so'm|som|uzs|ming|million)\b/iu;
 
 const normalizeCurrency = (value) => {
@@ -28,10 +36,15 @@ const normalizeCurrency = (value) => {
   if (["USD", "$", "DOLLAR", "DOLLOR", "DOLAR"].includes(normalized)) {
     return "USD";
   }
+  if (["EUR", "EURO", "EVRO", "YEVRO", "\u20AC"].includes(normalized)) {
+    return "EUR";
+  }
+  if (["RUB", "RUBL", "RUBLE", "RUBLI", "\u20BD"].includes(normalized)) {
+    return "RUB";
+  }
 
   return "UZS";
 };
-
 const inferCurrency = (...sources) => {
   for (const source of sources) {
     const text = String(source || "").trim();
@@ -41,6 +54,12 @@ const inferCurrency = (...sources) => {
 
     if (dollarPattern.test(text)) {
       return "USD";
+    }
+    if (euroPattern.test(text)) {
+      return "EUR";
+    }
+    if (rublePattern.test(text)) {
+      return "RUB";
     }
 
     if (uzsPattern.test(text)) {
@@ -55,15 +74,21 @@ const getExchangeRate = (currency) => {
   if (currency === "USD") {
     return Number.isFinite(env.usdToUzsRate) && env.usdToUzsRate > 0 ? env.usdToUzsRate : 12172.18;
   }
+  if (currency === "EUR") {
+    return Number.isFinite(env.eurToUzsRate) && env.eurToUzsRate > 0 ? env.eurToUzsRate : 13250;
+  }
+  if (currency === "RUB") {
+    return Number.isFinite(env.rubToUzsRate) && env.rubToUzsRate > 0 ? env.rubToUzsRate : 135;
+  }
 
   return 1;
 };
 
 const convertAmountToUzs = (amount, currency, exchangeRate) =>
-  currency === "USD" ? Math.round(amount * exchangeRate) : Math.round(amount);
+  currency === "UZS" ? Math.round(amount) : Math.round(amount * exchangeRate);
 
 const normalizeAmountByCurrency = (amount, currency) =>
-  currency === "USD" ? Math.round(amount * 100) / 100 : Math.floor(amount);
+  currency === "UZS" ? Math.floor(amount) : Math.round(amount * 100) / 100;
 
 const categoryLabels = {
   general: "Umumiy",
@@ -361,3 +386,4 @@ export const getExpenseSummary = async (userId) => {
     recentExpenses
   };
 };
+

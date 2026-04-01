@@ -2,7 +2,7 @@ import { env } from "../config/env.js";
 import { HttpError } from "../utils/httpError.js";
 import { buildKotibaMasterPrompt } from "./kotibaPrompt.service.js";
 
-const allowedIntents = new Set(["chat", "reminder", "task", "mixed", "note"]);
+const allowedIntents = new Set(["chat", "reminder", "task", "mixed", "note", "expense"]);
 const allowedRepeatTypes = new Set(["none", "hourly", "daily", "weekly", "custom"]);
 
 const extractGeminiText = (payload) =>
@@ -67,7 +67,8 @@ const normalizeTask = (task) => ({
 
 const normalizeExpense = (expense) => ({
   title: String(expense?.title ?? "Xarajat").trim(),
-  amount: Number.isFinite(Number(expense?.amount)) ? Math.max(0, Math.floor(Number(expense.amount))) : 0,
+  amount: Number.isFinite(Number(expense?.amount)) ? Math.max(0, Number(expense.amount)) : 0,
+  currency: String(expense?.currency ?? "UZS").trim().toUpperCase() || "UZS",
   note: String(expense?.note ?? "").trim(),
   spent_at: expense?.spent_at ?? null,
   category: String(expense?.category ?? "general").trim() || "general"

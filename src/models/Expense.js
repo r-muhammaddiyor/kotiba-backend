@@ -27,7 +27,7 @@ const expenseSchema = new mongoose.Schema(
     },
     currency: {
       type: String,
-      enum: ["UZS", "USD"],
+      enum: ["UZS", "USD", "EUR", "RUB"],
       default: "UZS",
       trim: true
     },

@@ -53,6 +53,8 @@ export const env = {
   appTimeZone: process.env.APP_TIMEZONE ?? "Asia/Tashkent",
   appUtcOffset: process.env.APP_UTC_OFFSET ?? "+05:00",
   usdToUzsRate: Number(process.env.USD_TO_UZS_RATE ?? 12172.18),
+  eurToUzsRate: Number(process.env.EUR_TO_UZS_RATE ?? 13250),
+  rubToUzsRate: Number(process.env.RUB_TO_UZS_RATE ?? 135),
   uzbekVoiceApiKey: process.env.UZBEKVOICE_API_KEY,
   uzbekVoiceSttUrl: process.env.UZBEKVOICE_STT_URL,
   uzbekVoiceTtsUrl: process.env.UZBEKVOICE_TTS_URL,

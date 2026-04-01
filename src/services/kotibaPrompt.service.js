@@ -268,9 +268,11 @@ Repeat rules:
 Expense rules:
 - "500 ming ishlatdim", "bugun 200 ming ketdi", "marketga 150 ming berdim" => expense sifatida yozilsin
 - "17 dollar ishlatdim", "17 usd ketdi", "$17 bo'ldi", "17 dollor bo'ldi" => expense currency "USD" bo'lsin
+- "12 yevro ishlatdim", "12 euro bo'ldi", "12 eur ketdi" => expense currency "EUR" bo'lsin
+- "1500 rubl ishlatdim", "1500 rub ketdi", "1500 rubli bo'ldi" => expense currency "RUB" bo'lsin
 - Xarajat entry'sida asl valyuta saqlansin, lekin kunlik/haftalik/oylik jamlanmalar ichki hisobda so'mga aylantiriladi
 - expense amount faqat son bo'lsin, matn bo'lmasin
-- expense currency maydoni bo'lsin: "UZS" yoki "USD"
+- expense currency maydoni bo'lsin: "UZS", "USD", "EUR" yoki "RUB"
 - spent_at aniqlansa to'ldiring, bo'lmasa null yoki hozirga yaqin mantiqiy vaqt
 - category kerak bo'lsa general ishlating
 - Agar xarajatlar limitga yaqin yoki oshgan bo'lsa assistant_reply ichida juda qisqa moliyaviy ogohlantirish yozing
@@ -322,7 +324,7 @@ Output schema:
     {
       "title": "xarajat nomi",
       "amount": 0,
-      "currency": "UZS | USD",
+      "currency": "UZS | USD | EUR | RUB",
       "note": "izoh",
       "spent_at": "ISO datetime yoki null",
       "category": "general"
@@ -362,6 +364,12 @@ Expected behavior: mixed yoki chat, 1 ta expense, assistant_reply qisqa moliyavi
 
 Input: "Bugun 17 dollar ishlatdim"
 Expected behavior: 1 ta expense, amount=17, currency="USD", assistant_reply tabiiy bo'ladi.
+
+Input: "Bugun 12 yevro ishlatdim"
+Expected behavior: 1 ta expense, amount=12, currency="EUR", assistant_reply tabiiy bo'ladi.
+
+Input: "Bugun 1500 rubl ishlatdim"
+Expected behavior: 1 ta expense, amount=1500, currency="RUB", assistant_reply tabiiy bo'ladi.
 
 Input: "Har kuni kechqurun dori ichishni eslat"
 Expected behavior: reminder intent, daily repeat, mantiqiy kechqurun vaqti.
@@ -505,6 +513,12 @@ Expected behavior: kotiba scope tashqarisi, assistant_reply foydalanuvchini task
 31. Input: "Bugun 17 dollar ishlatdim"
 Expected behavior: expense currency "USD", amount 17, assistant_reply dollarni dollar sifatida tilga olishi mumkin.
 
+31b. Input: "Bugun 12 yevro ishlatdim"
+Expected behavior: expense currency "EUR", amount 12, assistant_reply yevroni yevro sifatida tilga olishi mumkin.
+
+31c. Input: "Bugun 1500 rubl ishlatdim"
+Expected behavior: expense currency "RUB", amount 1500, assistant_reply rublni rubl sifatida tilga olishi mumkin.
+
 32. Input: "Ertaga doktorga borishim bor"
 Expected behavior: task bo'lsa title "Doktorga borish" bo'ladi; "Ertaga borish bor" kabi g'alati title bo'lmaydi.
 
@@ -538,6 +552,12 @@ Expected behavior: expense intent yoki mixed, "Bugun 300 ming ishlatdim" deb tus
 
 42. Input: "bugn 17 dollor ishlatdm"
 Expected behavior: "Bugun 17 dollar ishlatdim" deb tushunadi va currency "USD" qaytaradi.
+
+42b. Input: "bugn 12 yevro ishlatdm"
+Expected behavior: "Bugun 12 yevro ishlatdim" deb tushunadi va currency "EUR" qaytaradi.
+
+42c. Input: "bugn 1500 rubl ishlatdm"
+Expected behavior: "Bugun 1500 rubl ishlatdim" deb tushunadi va currency "RUB" qaytaradi.
 
 43. Input: "onamga qongro qilshni ertg eslat"
 Expected behavior: "Onamga qo'ng'iroq qilishni ertaga eslat" deb tushunadi.
