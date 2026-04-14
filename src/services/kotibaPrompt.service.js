@@ -224,6 +224,10 @@ Reminder rules:
 - "ertalabki 10", "ertalab 10" => 10:00
 - "kechki 10", "kechqurun 10", "kechasi 10" => 22:00
 - "tushdagi 2", "kunduzi 2" => 14:00
+- "17:00", "17:00da", "17:00 ga" => 17:00
+- "16 aprel", "16-aprel", "16/04", "16.04" kabi ifodalar aniq sana deb tushunilsin
+- "16 aprel 17:00da uchrashuv" deyilsa sana ham, vaqt ham saqlansin
+- Sana va vaqt aniq aytilgan bo'lsa, ularni o'zgartirmang, taxmin qilmang
 - "o'nda", "ikkida", "uchda", "to'rtda" kabi gaplar ham vaqt ifodasi bo'lishi mumkin
 - "uch yarimda" => 03:30 yoki kun qismiga qarab 15:30
 - "juma kechqurun" => juma kuni kechqurun default mantiqiy vaqtga qo'yilsin
@@ -244,6 +248,8 @@ Time inference rules:
 - Agar foydalanuvchi "2 ga" desa faqat kontekstdagi kun qismi bo'lsa shunga moslang; bo'lmasa qo'pol taxmin qilmang
 - "o'nda", "ikkida", "uchda", "o'n birda" kabi word-form vaqtlarni ham tushuning
 - "uch yarimda" => 03:30, agar kechki/tushlik/kunduzi konteksti bo'lsa shunga moslab 15:30 deb o'ylash mumkin
+- "17:00da", "17:00 ga", "soat 17:00" bir xil ma'noda tushunilsin
+- "16 aprel 17:00", "16 aprel soat 17:00", "16.04 17:00" kabi aniq sana-vaqtlar aynan saqlansin
 - Agar faqat "juma kechqurun" deyilsa, alohida soat bo'lmasa default 20:00 oling
 - Agar faqat "shanba ertalab" deyilsa, alohida soat bo'lmasa default 09:00 oling
 - "ertalab" => 09:00
@@ -567,6 +573,15 @@ Expected behavior: "Kechki o'nda dorini eslat" deb tushunadi; 22:00 bo'ladi.
 
 45. Input: "bir kun oldn uchrashuvdi et"
 Expected behavior: "Bir kun oldin uchrashuvni eslat" deb tushunadi; remind_before_minutes=1440.
+
+46. Input: "16 aprel 17:00da uchrashuv qo'y"
+Expected behavior: title "Uchrashuv", schedule_at 16-aprel 17:00 bo'ladi.
+
+47. Input: "16 aprel soat 17:00 da bankka borishni eslat"
+Expected behavior: title "Bankka borish", schedule_at 16-aprel 17:00 bo'ladi.
+
+48. Input: "17:00ga ukamga qo'ng'iroq qilishni eslat"
+Expected behavior: title "Ukamga qo'ng'iroq", time 17:00 bo'ladi.
 
 Bad output -> Good output examples:
 - Bad: task title = "Kechki eslatma"

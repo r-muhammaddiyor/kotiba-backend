@@ -64,6 +64,18 @@ export const env = {
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   openAiModel: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
   authTokenSecret: process.env.AUTH_TOKEN_SECRET,
+  smtpHost: process.env.SMTP_HOST ?? "",
+  smtpPort: Number(process.env.SMTP_PORT ?? 587),
+  smtpSecure: process.env.SMTP_SECURE === "true",
+  smtpUser: process.env.SMTP_USER ?? "",
+  smtpPass: process.env.SMTP_PASS ?? "",
+  smtpFromEmail: process.env.SMTP_FROM_EMAIL ?? "",
+  smtpFromName: process.env.SMTP_FROM_NAME ?? "Kotiba AI",
+  otpExpiresMinutes: Number(process.env.OTP_EXPIRES_MINUTES ?? 10),
+  otpResendCooldownSeconds: Number(
+    process.env.OTP_RESEND_COOLDOWN_SECONDS ?? 30
+  ),
+  otpMaxAttempts: Number(process.env.OTP_MAX_ATTEMPTS ?? 5),
   googleClientIds,
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,

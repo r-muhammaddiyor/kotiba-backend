@@ -1,9 +1,12 @@
 import { OAuth2Client } from "google-auth-library";
 import { env } from "../config/env.js";
+import { AuthOtp } from "../models/AuthOtp.js";
 import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
+import { generateOtpCode, hashOtpCode, verifyOtpCode } from "../utils/otp.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { createAuthToken } from "../utils/token.js";
+import { sendOtpEmail } from "./email.service.js";
 
 const googleClient = new OAuth2Client();
 
@@ -26,6 +29,24 @@ const createSessionPayload = (user) => ({
   token: createAuthToken({ userId: String(user._id) }),
   user: sanitizeUser(user)
 });
+
+const createDefaultNameFromEmail = (email) => {
+  const localPart = String(email || "")
+    .trim()
+    .split("@")[0]
+    .replace(/[._-]+/g, " ")
+    .trim();
+
+  if (!localPart) {
+    return "Kotiba foydalanuvchisi";
+  }
+
+  return localPart
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
 
 const normalizeGoogleProfile = async (payload) => {
   const idToken = String(payload?.idToken || payload?.credential || "").trim();
@@ -119,6 +140,119 @@ export const loginUser = async ({ email, password }) => {
   const valid = await verifyPassword(normalizedPassword, user.passwordHash);
   if (!valid) {
     throw new HttpError(401, "Email yoki parol noto'g'ri");
+  }
+
+  return createSessionPayload(user);
+};
+
+export const sendLoginOtp = async ({ email }) => {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+
+  if (!normalizedEmail || !normalizedEmail.includes("@")) {
+    throw new HttpError(400, "To'g'ri email kiriting");
+  }
+
+  const now = new Date();
+  const existingOtp = await AuthOtp.findOne({ email: normalizedEmail });
+
+  if (existingOtp?.lastSentAt) {
+    const elapsedSeconds = Math.floor(
+      (now.getTime() - new Date(existingOtp.lastSentAt).getTime()) / 1000
+    );
+    const waitSeconds = env.otpResendCooldownSeconds - elapsedSeconds;
+
+    if (waitSeconds > 0) {
+      throw new HttpError(429, "Kodni sal keyinroq qayta yuboring", {
+        waitSeconds
+      });
+    }
+  }
+
+  const code = generateOtpCode();
+  const expiresAt = new Date(now.getTime() + env.otpExpiresMinutes * 60 * 1000);
+
+  await AuthOtp.findOneAndUpdate(
+    { email: normalizedEmail },
+    {
+      email: normalizedEmail,
+      codeHash: hashOtpCode(normalizedEmail, code),
+      expiresAt,
+      lastSentAt: now,
+      attemptCount: 0
+    },
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true
+    }
+  );
+
+  try {
+    await sendOtpEmail({
+      email: normalizedEmail,
+      code,
+      expiresInMinutes: env.otpExpiresMinutes
+    });
+  } catch (error) {
+    await AuthOtp.deleteOne({ email: normalizedEmail });
+    throw error;
+  }
+
+  return {
+    sent: true,
+    expiresInMinutes: env.otpExpiresMinutes,
+    cooldownSeconds: env.otpResendCooldownSeconds
+  };
+};
+
+export const verifyLoginOtp = async ({ email, otp, code }) => {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const submittedCode = String(otp || code || "").trim();
+
+  if (!normalizedEmail || !normalizedEmail.includes("@")) {
+    throw new HttpError(400, "To'g'ri email kiriting");
+  }
+
+  if (submittedCode.length !== 6) {
+    throw new HttpError(400, "6 xonali kodni kiriting");
+  }
+
+  const otpRecord = await AuthOtp.findOne({ email: normalizedEmail });
+  if (!otpRecord) {
+    throw new HttpError(401, "OTP topilmadi yoki muddati tugagan");
+  }
+
+  if (otpRecord.expiresAt.getTime() <= Date.now()) {
+    await AuthOtp.deleteOne({ _id: otpRecord._id });
+    throw new HttpError(401, "OTP muddati tugagan");
+  }
+
+  if (otpRecord.attemptCount >= env.otpMaxAttempts) {
+    await AuthOtp.deleteOne({ _id: otpRecord._id });
+    throw new HttpError(429, "Juda ko'p urinish bo'ldi. Yangi kod so'rang");
+  }
+
+  const valid = verifyOtpCode(
+    normalizedEmail,
+    submittedCode,
+    otpRecord.codeHash
+  );
+
+  if (!valid) {
+    otpRecord.attemptCount += 1;
+    await otpRecord.save();
+
+    throw new HttpError(401, "Kod noto'g'ri yoki eskirgan");
+  }
+
+  await AuthOtp.deleteOne({ _id: otpRecord._id });
+
+  let user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    user = await User.create({
+      name: createDefaultNameFromEmail(normalizedEmail),
+      email: normalizedEmail
+    });
   }
 
   return createSessionPayload(user);

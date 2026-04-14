@@ -11,6 +11,7 @@ import { createConversationMessages } from "./conversation.service.js";
 import { createAssistantExpenses, getExpenseSnapshot } from "./expense.service.js";
 import { createAssistantNotes } from "./note.service.js";
 import { hasAbsoluteTimeCue, inferAbsoluteScheduleAt, inferRelativeScheduleMinutes, inferRemindBeforeMinutes } from "../utils/taskTiming.js";
+import { normalizeKotibaInput } from "../utils/kotibaInput.js";
 
 const buildIsoDateAfterMinutes = (minutesFromNow) => new Date(Date.now() + minutesFromNow * 60 * 1000).toISOString();
 
@@ -90,26 +91,28 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
     throw new HttpError(400, "Matn yuborilmadi");
   }
 
+  const preparedText = normalizeKotibaInput(normalizedText);
+
   const assistantContext = await getAssistantContext(userId);
-  const modelPayload = await getKotibaReply(normalizedText, {
+  const modelPayload = await getKotibaReply(preparedText, {
     ...assistantContext,
     inputMode: interactionType
   });
   const assistantPayload = hydrateTaskTiming(
     {
       ...modelPayload,
-      tasks: normalizeAssistantTasks(modelPayload.tasks, normalizedText)
+      tasks: normalizeAssistantTasks(modelPayload.tasks, preparedText)
     },
-    normalizedText
+    preparedText
   );
   const [createdTasks, createdExpenses, createdNotes] = await Promise.all([
     createAssistantTasks({
       userId,
       intent: assistantPayload.intent,
       tasks: assistantPayload.tasks,
-      sourceText: normalizedText
+      sourceText: preparedText
     }),
-    createAssistantExpenses(userId, assistantPayload.expenses, normalizedText),
+    createAssistantExpenses(userId, assistantPayload.expenses, preparedText),
     createAssistantNotes(userId, assistantPayload.notes)
   ]);
 
@@ -129,7 +132,7 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
 
   const aiText = assistantPayload.assistant_reply;
   const suggestionSeed = [
-    normalizedText,
+    preparedText,
     aiText,
     ...createdTasks.map((task) => task.title),
     ...createdExpenses.map((expense) => expense.title),
@@ -140,7 +143,7 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
   const savedMessages = await createConversationMessages({
     userId,
     interactionType,
-    userText: normalizedText,
+    userText: preparedText,
     assistantText: aiText,
     intent: assistantPayload.intent,
     createdTasks
@@ -148,7 +151,7 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
 
   if (!includeAudio) {
     return {
-      userText: normalizedText,
+      userText: preparedText,
       aiText,
       intent: assistantPayload.intent,
       tasks: assistantPayload.tasks,
@@ -166,7 +169,7 @@ export const generateAssistantReply = async ({ userId, userText, includeAudio = 
   const tts = await synthesizeUzbekSpeech(aiText);
 
   return {
-    userText: normalizedText,
+    userText: preparedText,
     aiText,
     intent: assistantPayload.intent,
     tasks: assistantPayload.tasks,
