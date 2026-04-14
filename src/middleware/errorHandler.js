@@ -11,7 +11,11 @@ export const errorHandler = (err, req, res, next) => {
 
   if (
     err?.statusCode === 400 &&
-    (err?.type === "entity.parse.failed" || err instanceof SyntaxError)
+    (
+      err?.type === "entity.parse.failed" ||
+      err instanceof SyntaxError ||
+      String(err?.message || "").toLowerCase().includes("invalid json")
+    )
   ) {
     return res.status(400).json({
       success: false,
