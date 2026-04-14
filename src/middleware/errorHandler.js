@@ -9,6 +9,17 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
+  if (
+    err?.statusCode === 400 &&
+    (err?.type === "entity.parse.failed" || err instanceof SyntaxError)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "So'rov JSON formati noto'g'ri. Ilovani yangilang va qayta urinib ko'ring"
+    });
+  }
+
   if (err.name === "MulterError") {
     return res.status(400).json({
       success: false,
